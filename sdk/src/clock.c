@@ -37,6 +37,7 @@
 //  https://forum.pjrc.com/threads/57236?p=212642&viewfull=1#post212642
 volatile uint32_t clock_cpu_frequency_hz = 396000000;
 volatile uint32_t clock_bus_frequency_hz = 132000000;
+volatile uint32_t clock_uart_frequency_hz = 24000000;
 
 // Define these to increase the voltage when attempting overclocking
 // The frequency step is how quickly to increase voltage per frequency
@@ -64,6 +65,12 @@ uint32_t clock_init(uint32_t frequency)
 	uint32_t cbcdr = CCM_CBCDR; // pg 1021
 	uint32_t cbcmr = CCM_CBCMR; // pg 1023
 	uint32_t dcdc = DCDC_REG3;
+
+	/* LPUART peripherals use the 24 MHz crystal clock. */
+	CCM_CSCMR1 = (CCM_CSCMR1 & ~CCM_CSCMR1_PERCLK_PODF(0x3F))
+		| CCM_CSCMR1_PERCLK_CLK_SEL;
+	CCM_CSCDR1 = (CCM_CSCDR1 & ~CCM_CSCDR1_UART_CLK_PODF(0x3F))
+		| CCM_CSCDR1_UART_CLK_SEL;
 
 	// compute required voltage, apparently not as simple as NXP datasheet says
 	// https://forum.pjrc.com/index.php?threads/77839

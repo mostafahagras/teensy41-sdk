@@ -4,7 +4,8 @@ add_library(teensy_sdk OBJECT
     src/clock.c
     src/pwm.c
     src/startup.c
-    src/time.c)
+    src/time.c
+    src/uart.c)
 
 target_include_directories(teensy_sdk
     PUBLIC

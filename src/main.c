@@ -1,6 +1,7 @@
 #include <teensy/gpio.h>
 #include <teensy/time.h>
 #include <teensy/pwm.h>
+#include <teensy/uart.h>
 
 int main(void)
 {
@@ -8,6 +9,8 @@ int main(void)
     pwm_init();
     pwm_set_frequency(13, 1000.0f);
     pwm_write(13, 128);
+    uart_init(uart6, 115200);
+    uart_write(uart6, "teensy41 uart ready\r\n", 20);
 
     for (;;) {
         __asm volatile("wfi");
