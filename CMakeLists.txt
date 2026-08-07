@@ -28,27 +28,35 @@ set(TEENSY_DEFINITIONS
     ARDUINO_TEENSY41
     F_CPU=600000000)
 
-set(TEENSY_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/linker/imxrt1062_t41.ld")
-
-add_executable(teensy41
-    src/bootdata.c
-    src/main.c
-    src/startup.c)
-
 execute_process(
     COMMAND "${CMAKE_C_COMPILER}" -print-sysroot
     OUTPUT_VARIABLE ARM_GCC_SYSROOT
     OUTPUT_STRIP_TRAILING_WHITESPACE
     RESULT_VARIABLE ARM_GCC_SYSROOT_RESULT)
 if(ARM_GCC_SYSROOT_RESULT EQUAL 0 AND IS_DIRECTORY "${ARM_GCC_SYSROOT}/include")
-    # Keep the target libc headers visible to clangd through compile_commands.json.
-    target_compile_options(teensy41 PRIVATE
-        "-isystem${ARM_GCC_SYSROOT}/include")
+    set(TEENSY_SYSROOT_INCLUDE_FLAG "-isystem${ARM_GCC_SYSROOT}/include")
 endif()
+execute_process(
+    COMMAND "${CMAKE_C_COMPILER}" -print-file-name=include
+    OUTPUT_VARIABLE ARM_GCC_INCLUDE
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    RESULT_VARIABLE ARM_GCC_INCLUDE_RESULT)
+if(ARM_GCC_INCLUDE_RESULT EQUAL 0 AND IS_DIRECTORY "${ARM_GCC_INCLUDE}")
+    set(TEENSY_GCC_INCLUDE_FLAG "-isystem${ARM_GCC_INCLUDE}")
+endif()
+
+set(TEENSY_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/sdk/linker/imxrt1062_t41.ld")
+
+add_subdirectory(sdk)
+
+add_executable(teensy41 src/main.c)
+target_link_libraries(teensy41 PRIVATE teensy_sdk)
 
 target_compile_definitions(teensy41 PRIVATE ${TEENSY_DEFINITIONS})
 target_compile_options(teensy41 PRIVATE
     ${TEENSY_CPU_FLAGS}
+    ${TEENSY_SYSROOT_INCLUDE_FLAG}
+    ${TEENSY_GCC_INCLUDE_FLAG}
     -Wall
     -Wextra
     -ffunction-sections
