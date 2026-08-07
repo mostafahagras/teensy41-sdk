@@ -2,6 +2,7 @@
 
 #include <teensy/imxrt.h>
 #include <teensy/clock.h>
+#include <teensy/cache.h>
 #include <teensy/time.h>
 
 extern uint32_t _estack;
@@ -79,6 +80,7 @@ static void reset_handler(void)
     IOMUXC_GPR_GPR28 = 0xFFFFFFFFu;
     IOMUXC_GPR_GPR29 = 0xFFFFFFFFu;
 
+    cache_init();
     clock_init(F_CPU);
     time_init();
 

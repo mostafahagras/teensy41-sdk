@@ -3,6 +3,7 @@
 #include <teensy/time.h>
 #include <teensy/pwm.h>
 #include <teensy/uart.h>
+#include <teensy/usb.h>
 
 int main(void)
 {
@@ -13,6 +14,8 @@ int main(void)
     uart_init(uart6, 115200);
     uart_write(uart6, "teensy41 uart ready\r\n", 20);
     i2c_init(i2c1, 100000);
+    usb_init();
+    usb_write("teensy41 usb ready\r\n", 20);
 
     for (;;) {
         __asm volatile("wfi");
