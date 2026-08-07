@@ -29,9 +29,8 @@ toolchain file automatically detects the archive under
 `$HOME/.local/toolchains`.
 
 ```sh
-cmake -S . -B build -G Ninja \
-  -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake
-cmake --build build
+cmake --preset teensy41
+cmake --build --preset teensy41
 ```
 
 Configuration also generates `build/compile_commands.json`. The `.clangd`
@@ -42,8 +41,7 @@ If the complete ARM toolchain is in another location, set its executable
 prefix during configuration:
 
 ```sh
-cmake -S . -B build -G Ninja \
-  -DCMAKE_TOOLCHAIN_FILE=cmake/arm-none-eabi.cmake \
+cmake --fresh --preset teensy41 \
   -DARM_GCC_PREFIX=/path/to/arm-gnu-toolchain/bin/arm-none-eabi-
 ```
 

@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "teensy41",
+      "displayName": "Teensy 4.1",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/arm-none-eabi.cmake"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "teensy41",
+      "configurePreset": "teensy41"
+    }
+  ]
+}
