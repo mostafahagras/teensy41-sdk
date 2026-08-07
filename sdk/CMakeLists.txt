@@ -2,6 +2,7 @@ add_library(teensy_sdk OBJECT
     src/bootdata.c
     src/gpio.c
     src/clock.c
+    src/i2c.c
     src/pwm.c
     src/startup.c
     src/time.c

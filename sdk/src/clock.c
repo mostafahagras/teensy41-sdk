@@ -71,6 +71,8 @@ uint32_t clock_init(uint32_t frequency)
 		| CCM_CSCMR1_PERCLK_CLK_SEL;
 	CCM_CSCDR1 = (CCM_CSCDR1 & ~CCM_CSCDR1_UART_CLK_PODF(0x3F))
 		| CCM_CSCDR1_UART_CLK_SEL;
+	CCM_CSCDR2 = (CCM_CSCDR2 & ~CCM_CSCDR2_LPI2C_CLK_PODF(0x3F))
+		| CCM_CSCDR2_LPI2C_CLK_SEL;
 
 	// compute required voltage, apparently not as simple as NXP datasheet says
 	// https://forum.pjrc.com/index.php?threads/77839
