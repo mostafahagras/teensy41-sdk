@@ -1,6 +1,8 @@
 #include <stdint.h>
 
 #include <teensy/imxrt.h>
+#include <teensy/clock.h>
+#include <teensy/time.h>
 
 extern uint32_t _estack;
 extern uint32_t _stext;
@@ -76,6 +78,9 @@ static void reset_handler(void)
     IOMUXC_GPR_GPR27 = 0xFFFFFFFFu;
     IOMUXC_GPR_GPR28 = 0xFFFFFFFFu;
     IOMUXC_GPR_GPR29 = 0xFFFFFFFFu;
+
+    clock_init(F_CPU);
+    time_init();
 
     (void)main();
     for (;;) {

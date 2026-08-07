@@ -1,4 +1,5 @@
 #include <teensy/gpio.h>
+#include <teensy/time.h>
 #include <teensy/pwm.h>
 
 int main(void)
