@@ -1,6 +1,7 @@
 add_library(teensy_sdk OBJECT
     src/bootdata.c
     src/gpio.c
+    src/pwm.c
     src/startup.c)
 
 target_include_directories(teensy_sdk

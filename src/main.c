@@ -1,10 +1,12 @@
 #include <teensy/gpio.h>
+#include <teensy/pwm.h>
 
 int main(void)
 {
     gpio_init();
-    gpio_configure(13, GPIO_OUTPUT);
-    gpio_write(13, true);
+    pwm_init();
+    pwm_set_frequency(13, 1000.0f);
+    pwm_write(13, 128);
 
     for (;;) {
         __asm volatile("wfi");
