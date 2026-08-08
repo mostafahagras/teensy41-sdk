@@ -1,0 +1,10 @@
+Checks: >-
+  -*,
+  clang-analyzer-core.BitwiseShift,
+  clang-analyzer-core.DivideZero,
+  clang-analyzer-core.NullDereference,
+  clang-analyzer-core.StackAddressEscape,
+  clang-analyzer-core.uninitialized.*
+WarningsAsErrors: ''
+HeaderFilterRegex: '(^|/)(src|sdk/src)/.*'
+FormatStyle: file

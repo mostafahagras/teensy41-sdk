@@ -29,13 +29,28 @@ toolchain file automatically detects the archive under
 `$HOME/.local/toolchains`.
 
 ```sh
-cmake --preset teensy41
-cmake --build --preset teensy41
+./scripts/configure
+./scripts/compile
 ```
 
 Configuration also generates `build/compile_commands.json`. The `.clangd`
 file points clangd at that database and selects the ARM target, so run the
 CMake configure command once before opening the project in an editor.
+
+## Format and lint
+
+Install LLVM to use the project formatting and linting scripts:
+
+```sh
+./scripts/format
+./scripts/format --check
+./scripts/lint
+```
+
+`./scripts/format` formats the project C sources and headers in place.
+`--check` verifies formatting without changing files. Linting uses the ARM
+compile database, so run `./scripts/configure` first after changing CMake
+configuration.
 
 If the complete ARM toolchain is in another location, set its executable
 prefix during configuration:

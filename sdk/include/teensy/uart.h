@@ -5,16 +5,16 @@
 #include <stdint.h>
 
 typedef enum {
-    UART_ID_INVALID = 0,
-    UART_ID_1 = 1, /* LPUART1 */
-    UART_ID_2,     /* LPUART2 */
-    UART_ID_3,     /* LPUART3 */
-    UART_ID_4,     /* LPUART4 */
-    UART_ID_5,     /* LPUART5 */
-    UART_ID_6,     /* LPUART6 */
-    UART_ID_7,     /* LPUART7 */
-    UART_ID_8,     /* LPUART8 */
-    UART_COUNT = 9
+  UART_ID_INVALID = 0,
+  UART_ID_1 = 1, /* LPUART1 */
+  UART_ID_2,     /* LPUART2 */
+  UART_ID_3,     /* LPUART3 */
+  UART_ID_4,     /* LPUART4 */
+  UART_ID_5,     /* LPUART5 */
+  UART_ID_6,     /* LPUART6 */
+  UART_ID_7,     /* LPUART7 */
+  UART_ID_8,     /* LPUART8 */
+  UART_COUNT = 9
 } uart_id_t;
 
 #define uart1 ((uart_id_t)UART_ID_1)

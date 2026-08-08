@@ -44,14 +44,13 @@ volatile uint32_t clock_uart_frequency_hz = 24000000;
 // The datasheet says 1600 is the absolute maximum voltage.  The hardware
 // can actually create up to 1575.  But 1300 is the recommended limit.
 //  (earlier versions of the datasheet said 1300 was the absolute max)
-#define OVERCLOCK_STEPSIZE  28000000
-#define OVERCLOCK_MAX_VOLT  1575
+#define OVERCLOCK_STEPSIZE 28000000
+#define OVERCLOCK_MAX_VOLT 1575
 
 // Industrial temperature chips may require different parameters
 // https://forum.pjrc.com/index.php?threads/75798/#post-349215
 // Uncomment this to add boost voltage
-//#define BOOST_FOR_WIDE_TEMPERATURE_CHIPS 25
-
+// #define BOOST_FOR_WIDE_TEMPERATURE_CHIPS 25
 
 // stuff needing wait handshake:
 //  CCM_CACRR  ARM_PODF
@@ -60,151 +59,168 @@ volatile uint32_t clock_uart_frequency_hz = 24000000;
 //  CCM_CBCDR  AHB_PODF
 //  CCM_CBCDR  SEMC_PODF
 
-uint32_t clock_init(uint32_t frequency)
-{
-	uint32_t cbcdr = CCM_CBCDR; // pg 1021
-	uint32_t cbcmr = CCM_CBCMR; // pg 1023
-	uint32_t dcdc = DCDC_REG3;
+uint32_t clock_init(uint32_t frequency) {
+  uint32_t cbcdr = CCM_CBCDR; // pg 1021
+  uint32_t cbcmr = CCM_CBCMR; // pg 1023
+  uint32_t dcdc = DCDC_REG3;
 
-	/* LPUART peripherals use the 24 MHz crystal clock. */
-	CCM_CSCMR1 = (CCM_CSCMR1 & ~CCM_CSCMR1_PERCLK_PODF(0x3F))
-		| CCM_CSCMR1_PERCLK_CLK_SEL;
-	CCM_CSCDR1 = (CCM_CSCDR1 & ~CCM_CSCDR1_UART_CLK_PODF(0x3F))
-		| CCM_CSCDR1_UART_CLK_SEL;
-	CCM_CSCDR2 = (CCM_CSCDR2 & ~CCM_CSCDR2_LPI2C_CLK_PODF(0x3F))
-		| CCM_CSCDR2_LPI2C_CLK_SEL;
+  /* LPUART peripherals use the 24 MHz crystal clock. */
+  CCM_CSCMR1 =
+      (CCM_CSCMR1 & ~CCM_CSCMR1_PERCLK_PODF(0x3F)) | CCM_CSCMR1_PERCLK_CLK_SEL;
+  CCM_CSCDR1 =
+      (CCM_CSCDR1 & ~CCM_CSCDR1_UART_CLK_PODF(0x3F)) | CCM_CSCDR1_UART_CLK_SEL;
+  CCM_CSCDR2 = (CCM_CSCDR2 & ~CCM_CSCDR2_LPI2C_CLK_PODF(0x3F)) |
+               CCM_CSCDR2_LPI2C_CLK_SEL;
 
-	// compute required voltage, apparently not as simple as NXP datasheet says
-	// https://forum.pjrc.com/index.php?threads/77839
-	uint32_t voltage; // millivolts
-	if (frequency <= 240000000) {
-		voltage = 950 + (frequency / 32000000) * 25;
-	} else if (frequency < 460000000) {
-		voltage = 1150;
-	} else if (frequency <= 528000000) {
-		voltage = 1175;
-	} else if (frequency <= 600000000) {
-		voltage = 1250;
-	} else {
-		voltage = 1250 + ((frequency - 600000000) / OVERCLOCK_STEPSIZE) * 25;
-	}
+  // compute required voltage, apparently not as simple as NXP datasheet says
+  // https://forum.pjrc.com/index.php?threads/77839
+  uint32_t voltage; // millivolts
+  if (frequency <= 240000000) {
+    voltage = 950 + (frequency / 32000000) * 25;
+  } else if (frequency < 460000000) {
+    voltage = 1150;
+  } else if (frequency <= 528000000) {
+    voltage = 1175;
+  } else if (frequency <= 600000000) {
+    voltage = 1250;
+  } else {
+    voltage = 1250 + ((frequency - 600000000) / OVERCLOCK_STEPSIZE) * 25;
+  }
 #ifdef BOOST_FOR_WIDE_TEMPERATURE_CHIPS
-	if (((HW_OCOTP_CFG3 >> 16) & 3) == 1) {
-		voltage += BOOST_FOR_WIDE_TEMPERATURE_CHIPS;
-	}
+  if (((HW_OCOTP_CFG3 >> 16) & 3) == 1) {
+    voltage += BOOST_FOR_WIDE_TEMPERATURE_CHIPS;
+  }
 #endif
-	if (voltage > OVERCLOCK_MAX_VOLT) voltage = OVERCLOCK_MAX_VOLT;
+  if (voltage > OVERCLOCK_MAX_VOLT)
+    voltage = OVERCLOCK_MAX_VOLT;
 
-	// if voltage needs to increase, do it before switch clock speed
-	CCM_CCGR6 |= CCM_CCGR6_DCDC(CCM_CCGR_ON);
-	if ((dcdc & DCDC_REG3_TRG_MASK) < DCDC_REG3_TRG((voltage - 800) / 25)) {
-		dcdc &= ~DCDC_REG3_TRG_MASK;
-		dcdc |= DCDC_REG3_TRG((voltage - 800) / 25);
-		DCDC_REG3 = dcdc;
-		while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK)) ; // wait voltage settling
-	}
+  // if voltage needs to increase, do it before switch clock speed
+  CCM_CCGR6 |= CCM_CCGR6_DCDC(CCM_CCGR_ON);
+  if ((dcdc & DCDC_REG3_TRG_MASK) < DCDC_REG3_TRG((voltage - 800) / 25)) {
+    dcdc &= ~DCDC_REG3_TRG_MASK;
+    dcdc |= DCDC_REG3_TRG((voltage - 800) / 25);
+    DCDC_REG3 = dcdc;
+    while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK))
+      ; // wait voltage settling
+  }
 
-	if (!(cbcdr & CCM_CBCDR_PERIPH_CLK_SEL)) {
-		const uint32_t need1s = CCM_ANALOG_PLL_USB1_ENABLE | CCM_ANALOG_PLL_USB1_POWER |
-			CCM_ANALOG_PLL_USB1_LOCK | CCM_ANALOG_PLL_USB1_EN_USB_CLKS;
-		uint32_t sel, div;
-		if ((CCM_ANALOG_PLL_USB1 & need1s) == need1s) {
-			sel = 0;
-			div = 3; // divide down to 120 MHz, so IPG is ok even if IPG_PODF=0
-		} else {
-			sel = 1;
-			div = 0;
-		}
-		if ((cbcdr & CCM_CBCDR_PERIPH_CLK2_PODF_MASK) != CCM_CBCDR_PERIPH_CLK2_PODF(div)) {
-			// PERIPH_CLK2 divider needs to be changed
-			cbcdr &= ~CCM_CBCDR_PERIPH_CLK2_PODF_MASK;
-			cbcdr |= CCM_CBCDR_PERIPH_CLK2_PODF(div);
-			CCM_CBCDR = cbcdr;
-		}
-		if ((cbcmr & CCM_CBCMR_PERIPH_CLK2_SEL_MASK) != CCM_CBCMR_PERIPH_CLK2_SEL(sel)) {
-			// PERIPH_CLK2 source select needs to be changed
-			cbcmr &= ~CCM_CBCMR_PERIPH_CLK2_SEL_MASK;
-			cbcmr |= CCM_CBCMR_PERIPH_CLK2_SEL(sel);
-			CCM_CBCMR = cbcmr;
-			while (CCM_CDHIPR & CCM_CDHIPR_PERIPH2_CLK_SEL_BUSY) ; // wait
-		}
-		// switch over to PERIPH_CLK2
-		cbcdr |= CCM_CBCDR_PERIPH_CLK_SEL;
-		CCM_CBCDR = cbcdr;
-		while (CCM_CDHIPR & CCM_CDHIPR_PERIPH_CLK_SEL_BUSY) ; // wait
-	} else {
-	}
+  if (!(cbcdr & CCM_CBCDR_PERIPH_CLK_SEL)) {
+    const uint32_t need1s =
+        CCM_ANALOG_PLL_USB1_ENABLE | CCM_ANALOG_PLL_USB1_POWER |
+        CCM_ANALOG_PLL_USB1_LOCK | CCM_ANALOG_PLL_USB1_EN_USB_CLKS;
+    uint32_t sel, div;
+    if ((CCM_ANALOG_PLL_USB1 & need1s) == need1s) {
+      sel = 0;
+      div = 3; // divide down to 120 MHz, so IPG is ok even if IPG_PODF=0
+    } else {
+      sel = 1;
+      div = 0;
+    }
+    if ((cbcdr & CCM_CBCDR_PERIPH_CLK2_PODF_MASK) !=
+        CCM_CBCDR_PERIPH_CLK2_PODF(div)) {
+      // PERIPH_CLK2 divider needs to be changed
+      cbcdr &= ~CCM_CBCDR_PERIPH_CLK2_PODF_MASK;
+      cbcdr |= CCM_CBCDR_PERIPH_CLK2_PODF(div);
+      CCM_CBCDR = cbcdr;
+    }
+    if ((cbcmr & CCM_CBCMR_PERIPH_CLK2_SEL_MASK) !=
+        CCM_CBCMR_PERIPH_CLK2_SEL(sel)) {
+      // PERIPH_CLK2 source select needs to be changed
+      cbcmr &= ~CCM_CBCMR_PERIPH_CLK2_SEL_MASK;
+      cbcmr |= CCM_CBCMR_PERIPH_CLK2_SEL(sel);
+      CCM_CBCMR = cbcmr;
+      while (CCM_CDHIPR & CCM_CDHIPR_PERIPH2_CLK_SEL_BUSY)
+        ; // wait
+    }
+    // switch over to PERIPH_CLK2
+    cbcdr |= CCM_CBCDR_PERIPH_CLK_SEL;
+    CCM_CBCDR = cbcdr;
+    while (CCM_CDHIPR & CCM_CDHIPR_PERIPH_CLK_SEL_BUSY)
+      ; // wait
+  } else {
+  }
 
-	// TODO: check if PLL2 running, can 352, 396 or 528 can work? (no need for ARM PLL)
+  // TODO: check if PLL2 running, can 352, 396 or 528 can work? (no need for ARM
+  // PLL)
 
-	// DIV_SELECT: 54-108 = official range 648 to 1296 in 12 MHz steps
-	uint32_t div_arm = 1;
-	uint32_t div_ahb = 1;
-	while (frequency * div_arm * div_ahb < 648000000) {
-		if (div_arm < 8) {
-			div_arm = div_arm + 1;
-		} else {
-			if (div_ahb < 5) {
-				div_ahb = div_ahb + 1;
-				div_arm = 1;
-			} else {
-				break;
-			}
-		}
-	}
-	uint32_t mult = (frequency * div_arm * div_ahb + 6000000) / 12000000;
-	if (mult > 108) mult = 108;
-	if (mult < 54) mult = 54;
-	frequency = mult * 12000000 / div_arm / div_ahb;
+  // DIV_SELECT: 54-108 = official range 648 to 1296 in 12 MHz steps
+  uint32_t div_arm = 1;
+  uint32_t div_ahb = 1;
+  while (frequency * div_arm * div_ahb < 648000000) {
+    if (div_arm < 8) {
+      div_arm = div_arm + 1;
+    } else {
+      if (div_ahb < 5) {
+        div_ahb = div_ahb + 1;
+        div_arm = 1;
+      } else {
+        break;
+      }
+    }
+  }
+  uint32_t mult = (frequency * div_arm * div_ahb + 6000000) / 12000000;
+  if (mult > 108)
+    mult = 108;
+  if (mult < 54)
+    mult = 54;
+  frequency = mult * 12000000 / div_arm / div_ahb;
 
-	const uint32_t arm_pll_mask = CCM_ANALOG_PLL_ARM_LOCK | CCM_ANALOG_PLL_ARM_BYPASS |
-		CCM_ANALOG_PLL_ARM_ENABLE | CCM_ANALOG_PLL_ARM_POWERDOWN |
-		CCM_ANALOG_PLL_ARM_DIV_SELECT_MASK;
-	if ((CCM_ANALOG_PLL_ARM & arm_pll_mask) != (CCM_ANALOG_PLL_ARM_LOCK
-	  | CCM_ANALOG_PLL_ARM_ENABLE | CCM_ANALOG_PLL_ARM_DIV_SELECT(mult))) {
-		CCM_ANALOG_PLL_ARM = CCM_ANALOG_PLL_ARM_POWERDOWN;
-		// TODO: delay needed?
-		CCM_ANALOG_PLL_ARM = CCM_ANALOG_PLL_ARM_ENABLE
-			| CCM_ANALOG_PLL_ARM_DIV_SELECT(mult);
-		while (!(CCM_ANALOG_PLL_ARM & CCM_ANALOG_PLL_ARM_LOCK)) ; // wait for lock
-	}
+  const uint32_t arm_pll_mask =
+      CCM_ANALOG_PLL_ARM_LOCK | CCM_ANALOG_PLL_ARM_BYPASS |
+      CCM_ANALOG_PLL_ARM_ENABLE | CCM_ANALOG_PLL_ARM_POWERDOWN |
+      CCM_ANALOG_PLL_ARM_DIV_SELECT_MASK;
+  if ((CCM_ANALOG_PLL_ARM & arm_pll_mask) !=
+      (CCM_ANALOG_PLL_ARM_LOCK | CCM_ANALOG_PLL_ARM_ENABLE |
+       CCM_ANALOG_PLL_ARM_DIV_SELECT(mult))) {
+    CCM_ANALOG_PLL_ARM = CCM_ANALOG_PLL_ARM_POWERDOWN;
+    // TODO: delay needed?
+    CCM_ANALOG_PLL_ARM =
+        CCM_ANALOG_PLL_ARM_ENABLE | CCM_ANALOG_PLL_ARM_DIV_SELECT(mult);
+    while (!(CCM_ANALOG_PLL_ARM & CCM_ANALOG_PLL_ARM_LOCK))
+      ; // wait for lock
+  }
 
-	if ((CCM_CACRR & CCM_CACRR_ARM_PODF_MASK) != (div_arm - 1)) {
-		CCM_CACRR = CCM_CACRR_ARM_PODF(div_arm - 1);
-		while (CCM_CDHIPR & CCM_CDHIPR_ARM_PODF_BUSY) ; // wait
-	}
+  if ((CCM_CACRR & CCM_CACRR_ARM_PODF_MASK) != (div_arm - 1)) {
+    CCM_CACRR = CCM_CACRR_ARM_PODF(div_arm - 1);
+    while (CCM_CDHIPR & CCM_CDHIPR_ARM_PODF_BUSY)
+      ; // wait
+  }
 
-	if ((cbcdr & CCM_CBCDR_AHB_PODF_MASK) != CCM_CBCDR_AHB_PODF(div_ahb - 1)) {
-		cbcdr &= ~CCM_CBCDR_AHB_PODF_MASK;
-		cbcdr |= CCM_CBCDR_AHB_PODF(div_ahb - 1);
-		CCM_CBCDR = cbcdr;
-		while (CCM_CDHIPR & CCM_CDHIPR_AHB_PODF_BUSY); // wait
-	}
+  if ((cbcdr & CCM_CBCDR_AHB_PODF_MASK) != CCM_CBCDR_AHB_PODF(div_ahb - 1)) {
+    cbcdr &= ~CCM_CBCDR_AHB_PODF_MASK;
+    cbcdr |= CCM_CBCDR_AHB_PODF(div_ahb - 1);
+    CCM_CBCDR = cbcdr;
+    while (CCM_CDHIPR & CCM_CDHIPR_AHB_PODF_BUSY)
+      ; // wait
+  }
 
-	uint32_t div_ipg = (frequency + 149999999) / 150000000;
-	if (div_ipg > 4) div_ipg = 4;
-	if ((cbcdr & CCM_CBCDR_IPG_PODF_MASK) != (CCM_CBCDR_IPG_PODF(div_ipg - 1))) {
-		cbcdr &= ~CCM_CBCDR_IPG_PODF_MASK;
-		cbcdr |= CCM_CBCDR_IPG_PODF(div_ipg - 1);
-		// TODO: how to safely change IPG_PODF ??
-		CCM_CBCDR = cbcdr;
-	}
+  uint32_t div_ipg = (frequency + 149999999) / 150000000;
+  if (div_ipg > 4)
+    div_ipg = 4;
+  if ((cbcdr & CCM_CBCDR_IPG_PODF_MASK) != (CCM_CBCDR_IPG_PODF(div_ipg - 1))) {
+    cbcdr &= ~CCM_CBCDR_IPG_PODF_MASK;
+    cbcdr |= CCM_CBCDR_IPG_PODF(div_ipg - 1);
+    // TODO: how to safely change IPG_PODF ??
+    CCM_CBCDR = cbcdr;
+  }
 
-	//cbcdr &= ~CCM_CBCDR_PERIPH_CLK_SEL;
-	//CCM_CBCDR = cbcdr;  // why does this not work at 24 MHz?
-	CCM_CBCDR &= ~CCM_CBCDR_PERIPH_CLK_SEL;
-	while (CCM_CDHIPR & CCM_CDHIPR_PERIPH_CLK_SEL_BUSY) ; // wait
+  // cbcdr &= ~CCM_CBCDR_PERIPH_CLK_SEL;
+  // CCM_CBCDR = cbcdr;  // why does this not work at 24 MHz?
+  CCM_CBCDR &= ~CCM_CBCDR_PERIPH_CLK_SEL;
+  while (CCM_CDHIPR & CCM_CDHIPR_PERIPH_CLK_SEL_BUSY)
+    ; // wait
 
-    clock_cpu_frequency_hz = frequency;
-    clock_bus_frequency_hz = frequency / div_ipg;
+  clock_cpu_frequency_hz = frequency;
+  clock_bus_frequency_hz = frequency / div_ipg;
 
-	// if voltage needs to decrease, do it after switch clock speed
-	if ((dcdc & DCDC_REG3_TRG_MASK) > DCDC_REG3_TRG((voltage - 800) / 25)) {
-		dcdc &= ~DCDC_REG3_TRG_MASK;
-		dcdc |= DCDC_REG3_TRG((voltage - 800) / 25);
-		DCDC_REG3 = dcdc;
-		while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK)) ; // wait voltage settling
-	}
+  // if voltage needs to decrease, do it after switch clock speed
+  if ((dcdc & DCDC_REG3_TRG_MASK) > DCDC_REG3_TRG((voltage - 800) / 25)) {
+    dcdc &= ~DCDC_REG3_TRG_MASK;
+    dcdc |= DCDC_REG3_TRG((voltage - 800) / 25);
+    DCDC_REG3 = dcdc;
+    while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK))
+      ; // wait voltage settling
+  }
 
-    return frequency;
+  return frequency;
 }

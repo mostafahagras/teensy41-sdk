@@ -23,44 +23,42 @@ extern uint32_t _ebss;
 #define SIZE_1G (SCB_MPU_RASR_SIZE(29) | SCB_MPU_RASR_ENABLE)
 #define REGION(n) (SCB_MPU_RBAR_REGION(n) | SCB_MPU_RBAR_VALID)
 
-void cache_init(void)
-{
-    uint32_t region = 0;
+void cache_init(void) {
+  uint32_t region = 0;
 
-    SCB_MPU_CTRL = 0;
+  SCB_MPU_CTRL = 0;
 
-    SCB_MPU_RBAR = REGION(region++);
-    SCB_MPU_RASR = NOACCESS | NOEXEC
-        | SCB_MPU_RASR_TEX(0) | SCB_MPU_RASR_SIZE(31)
-        | SCB_MPU_RASR_ENABLE;
+  SCB_MPU_RBAR = REGION(region++);
+  SCB_MPU_RASR = NOACCESS | NOEXEC | SCB_MPU_RASR_TEX(0) |
+                 SCB_MPU_RASR_SIZE(31) | SCB_MPU_RASR_ENABLE;
 
-    SCB_MPU_RBAR = 0x00000000u | REGION(region++);
-    SCB_MPU_RASR = MEM_NOCACHE | READONLY | SIZE_512K;
-    SCB_MPU_RBAR = 0x00000000u | REGION(region++);
-    SCB_MPU_RASR = DEV_NOCACHE | NOACCESS | SIZE_32B;
-    SCB_MPU_RBAR = 0x00200000u | REGION(region++);
-    SCB_MPU_RASR = MEM_CACHE_WT | READONLY | SIZE_128K;
-    SCB_MPU_RBAR = 0x20000000u | REGION(region++);
-    SCB_MPU_RASR = MEM_NOCACHE | READWRITE | NOEXEC | SIZE_512K;
-    SCB_MPU_RBAR = (uint32_t)&_ebss | REGION(region++);
-    SCB_MPU_RASR = NOACCESS | NOEXEC | SCB_MPU_RASR_TEX(0) | SIZE_32B;
-    SCB_MPU_RBAR = 0x20200000u | REGION(region++);
-    SCB_MPU_RASR = MEM_CACHE_WBWA | READWRITE | NOEXEC | SIZE_1M;
-    SCB_MPU_RBAR = 0x40000000u | REGION(region++);
-    SCB_MPU_RASR = DEV_NOCACHE | READWRITE | NOEXEC
-        | (SCB_MPU_RASR_SIZE(25) | SCB_MPU_RASR_ENABLE);
-    SCB_MPU_RBAR = 0x60000000u | REGION(region++);
-    SCB_MPU_RASR = MEM_CACHE_WBWA | READONLY | SIZE_16M;
-    SCB_MPU_RBAR = 0x70000000u | REGION(region++);
-    SCB_MPU_RASR = MEM_CACHE_WBWA | READWRITE | NOEXEC | SIZE_32M;
-    SCB_MPU_RBAR = 0x80000000u | REGION(region++);
-    SCB_MPU_RASR = MEM_CACHE_WBWA | READWRITE | NOEXEC | SIZE_1G;
+  SCB_MPU_RBAR = 0x00000000u | REGION(region++);
+  SCB_MPU_RASR = MEM_NOCACHE | READONLY | SIZE_512K;
+  SCB_MPU_RBAR = 0x00000000u | REGION(region++);
+  SCB_MPU_RASR = DEV_NOCACHE | NOACCESS | SIZE_32B;
+  SCB_MPU_RBAR = 0x00200000u | REGION(region++);
+  SCB_MPU_RASR = MEM_CACHE_WT | READONLY | SIZE_128K;
+  SCB_MPU_RBAR = 0x20000000u | REGION(region++);
+  SCB_MPU_RASR = MEM_NOCACHE | READWRITE | NOEXEC | SIZE_512K;
+  SCB_MPU_RBAR = (uint32_t)&_ebss | REGION(region++);
+  SCB_MPU_RASR = NOACCESS | NOEXEC | SCB_MPU_RASR_TEX(0) | SIZE_32B;
+  SCB_MPU_RBAR = 0x20200000u | REGION(region++);
+  SCB_MPU_RASR = MEM_CACHE_WBWA | READWRITE | NOEXEC | SIZE_1M;
+  SCB_MPU_RBAR = 0x40000000u | REGION(region++);
+  SCB_MPU_RASR = DEV_NOCACHE | READWRITE | NOEXEC |
+                 (SCB_MPU_RASR_SIZE(25) | SCB_MPU_RASR_ENABLE);
+  SCB_MPU_RBAR = 0x60000000u | REGION(region++);
+  SCB_MPU_RASR = MEM_CACHE_WBWA | READONLY | SIZE_16M;
+  SCB_MPU_RBAR = 0x70000000u | REGION(region++);
+  SCB_MPU_RASR = MEM_CACHE_WBWA | READWRITE | NOEXEC | SIZE_32M;
+  SCB_MPU_RBAR = 0x80000000u | REGION(region++);
+  SCB_MPU_RASR = MEM_CACHE_WBWA | READWRITE | NOEXEC | SIZE_1G;
 
-    __asm volatile("nop\nnop\nnop\nnop\nnop");
-    SCB_MPU_CTRL = SCB_MPU_CTRL_ENABLE;
-    __asm volatile("dsb\nisb" ::: "memory");
-    SCB_CACHE_ICIALLU = 0;
-    __asm volatile("dsb\nisb" ::: "memory");
-    SCB_CCR |= SCB_CCR_IC | SCB_CCR_DC;
-    __asm volatile("dsb\nisb" ::: "memory");
+  __asm volatile("nop\nnop\nnop\nnop\nnop");
+  SCB_MPU_CTRL = SCB_MPU_CTRL_ENABLE;
+  __asm volatile("dsb\nisb" ::: "memory");
+  SCB_CACHE_ICIALLU = 0;
+  __asm volatile("dsb\nisb" ::: "memory");
+  SCB_CCR |= SCB_CCR_IC | SCB_CCR_DC;
+  __asm volatile("dsb\nisb" ::: "memory");
 }

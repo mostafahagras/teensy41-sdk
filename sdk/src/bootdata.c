@@ -34,64 +34,31 @@ extern void ResetHandler(void);
 extern unsigned long _flashimagelen;
 
 __attribute__((section(".bootdata"), used))
-const uint32_t BootData[3] = {
-    0x60000000u,
-    (uint32_t)&_flashimagelen,
-    0
-};
+const uint32_t BootData[3] = {0x60000000u, (uint32_t)&_flashimagelen, 0};
 
-__attribute__((section(".csf"), used))
-const uint32_t hab_csf[768];
+__attribute__((section(".csf"), used)) const uint32_t hab_csf[768];
 
 __attribute__((section(".ivt"), used))
-const uint32_t ImageVectorTable[8] = {
-    0x432000D1u,
-    (uint32_t)&ResetHandler,
-    0,
-    0,
-    (uint32_t)BootData,
-    (uint32_t)ImageVectorTable,
-    (uint32_t)hab_csf,
-    0
-};
+const uint32_t ImageVectorTable[8] = {0x432000D1u,
+                                      (uint32_t)&ResetHandler,
+                                      0,
+                                      0,
+                                      (uint32_t)BootData,
+                                      (uint32_t)ImageVectorTable,
+                                      (uint32_t)hab_csf,
+                                      0};
 
-__attribute__((section(".flashconfig"), used))
-uint32_t FlexSPI_NOR_Config[128] = {
+__attribute__((section(".flashconfig"),
+               used)) uint32_t FlexSPI_NOR_Config[128] = {
     /* Common FlexSPI configuration block, words 0-31. */
-    0x42464346u, 0x56010000u, 0, 0x00020101u,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0x01060401u, 0, 0,
-    0x00800000u, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
+    0x42464346u, 0x56010000u, 0, 0x00020101u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0x01060401u, 0, 0, 0x00800000u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
     /* LUT, words 32-111. */
-    0x0A1804EBu, 0x32041EFFu, 0x00002601u, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0,
+    0x0A1804EBu, 0x32041EFFu, 0x00002601u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 
     /* Serial NOR configuration block, words 112-127. */
-    256, 4096, 1, 0,
-    0x00010000u, 0, 0, 0,
-    0, 0, 0, 0,
-    0, 0, 0, 0
-};
+    256, 4096, 1, 0, 0x00010000u, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
