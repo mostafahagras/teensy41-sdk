@@ -78,6 +78,12 @@ SECTIONS
         . = ALIGN(32);
     } > ERAM
 
+    /* FlexSPI2/PSRAM initialization is not part of the SDK yet.  Fail at
+       link time instead of producing an image that accesses uninitialized
+       external memory. */
+    ASSERT(SIZEOF(.bss.extram) == 0,
+           "external RAM variables require FlexSPI2/PSRAM initialization")
+
     .text.csf : {
         FILL(0xFF)
         . = ALIGN(1024);

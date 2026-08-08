@@ -345,7 +345,7 @@ int usb_serial_write(const void *buffer, uint32_t size) {
     if (size >= tx_available) {
       memcpy(txdata, data, tx_available);
       //*(txbuffer + (tx_head * TX_SIZE)) = 'A' + tx_head; // to see which
-      //buffer
+      // buffer
       //*(txbuffer + (tx_head * TX_SIZE) + 1) = ' '; // really see it
       uint8_t *txbuf = txbuffer + (tx_head * TX_SIZE);
       usb_prepare_transfer(xfer, txbuf, TX_SIZE, 0);

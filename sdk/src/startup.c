@@ -61,6 +61,13 @@ reset_handler(void) {
   IOMUXC_GPR_GPR14 = 0x00AA0000u;
   __asm volatile("dsb" ::: "memory");
 
+  /* Match the known-good Teensyduino power and PLL PFD setup.  The PFD
+   * registers are writable before ITCM/DTCM initialization because this
+   * function executes from flash. */
+  PMU_MISC0_SET = PMU_MISC0_REFTOP_SELFBIASOFF;
+  CCM_ANALOG_PFD_528 = 0x2018101Bu; /* 352, 594, 396, 297 MHz */
+  CCM_ANALOG_PFD_480 = 0x13110D0Cu; /* 720, 664, 508, 454 MHz */
+
   copy_words(&_stext, &_stextload, &_etext);
   copy_words(&_sdata, &_sdataload, &_edata);
   clear_words(&_sbss, &_ebss);
@@ -88,6 +95,16 @@ reset_handler(void) {
 
   cache_init();
   clock_init(F_CPU);
+
+  /* The boot ROM uses PIT while loading the image.  Do not expose that
+   * inherited timer state to the application. */
+  CCM_CCGR1 |= CCM_CCGR1_PIT(CCM_CCGR_ON);
+  PIT_MCR = 0;
+  PIT_TCTRL0 = 0;
+  PIT_TCTRL1 = 0;
+  PIT_TCTRL2 = 0;
+  PIT_TCTRL3 = 0;
+
   time_init();
 
   (void)main();

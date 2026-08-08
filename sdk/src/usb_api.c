@@ -2,9 +2,12 @@
 #include <stdint.h>
 
 #include <teensy/imxrt.h>
+#include <teensy/time.h>
 #include <teensy/usb.h>
 #include <teensy/usb_dev.h>
 #include <teensy/usb_serial.h>
+
+#define USB_STARTUP_DELAY_MS 20u
 
 extern volatile uint8_t usb_configuration;
 
@@ -43,6 +46,13 @@ static void usb_pll_start(void) {
 }
 
 void usb_init(void) {
+  uint32_t elapsed = time_millis();
+
+  /* Teensyduino does not start the controller during the first 20 ms after
+   * reset.  Preserve that hardware stabilization interval while keeping USB
+   * opt-in and avoiding Arduino's additional 280 ms application delay. */
+  if (elapsed < USB_STARTUP_DELAY_MS)
+    time_delay_ms(USB_STARTUP_DELAY_MS - elapsed);
   usb_pll_start();
   usb_controller_init();
 }
