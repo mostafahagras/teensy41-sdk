@@ -196,6 +196,10 @@ static int i2c_transaction(const i2c_config_t *config, uint8_t address,
     status = port->MSR;
     if (status & LPI2C_MSR_NDF) {
       i2c_clear_fifos(port);
+      /* NXP's controller remains master-busy after a NACK until a STOP is
+       * issued.  Match Teensy Wire's recovery sequence so the next transfer
+       * does not inherit a wedged bus. */
+      port->MTDR = LPI2C_MTDR_CMD_STOP;
       return I2C_ERROR_NACK;
     }
     if (status & LPI2C_MSR_ALF) {

@@ -64,7 +64,21 @@ reset_handler(void) {
   copy_words(&_stext, &_stextload, &_etext);
   copy_words(&_sdata, &_sdataload, &_edata);
   clear_words(&_sbss, &_ebss);
+
+  /*
+   * The whole SDK is built with -mfloat-abi=hard and -mfpu=fpv5-d16.
+   * Grant full access to CP10 and CP11 before any compiled C code outside
+   * this startup section can execute a floating-point instruction.
+   */
+  SCB_CPACR |= 0x00F00000u;
+  __asm volatile("dsb\nisb" ::: "memory");
+
   initialize_vectors();
+
+  /* Make configurable faults independently diagnosable instead of
+   * escalating them directly to HardFault. */
+  SCB_SHCSR |=
+      SCB_SHCSR_MEMFAULTENA | SCB_SHCSR_BUSFAULTENA | SCB_SHCSR_USGFAULTENA;
 
   // Route the fast GPIO6-GPIO9 aliases used by the Teensy 4.1 pin map.
   IOMUXC_GPR_GPR26 = 0xFFFFFFFFu;
