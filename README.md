@@ -58,7 +58,10 @@ With `teensy_loader_cli` installed, press the Teensy program button and run:
 cmake --build build --target flash
 ```
 
-The application entry point is `src/main.c`. Hardware startup and memory
-initialization are in `src/startup.c`; the Teensy 4.1 boot metadata is in
-`src/bootdata.c`. This starter does not initialize USB, GPIO, or the CPU
-clock; add those pieces to the application as needed.
+The application entry point is `src/main.c`. The platform implementation is
+under `sdk/`, with public headers in `sdk/include/teensy/`.
+
+The SDK currently provides GPIO, GPIO interrupts, PWM, clocks, timing, UART,
+I2C, USB CDC, and a compact `printf` implementation. Include
+`<teensy/printf.h>` for formatted debug output. `printf` output is sent only
+to USB CDC after the host has enumerated the device.

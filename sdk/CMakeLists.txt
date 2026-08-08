@@ -6,6 +6,8 @@ add_library(teensy_sdk OBJECT
     src/i2c.c
     src/memory.c
     src/pwm.c
+    src/printf.c
+    src/printf_backend.c
     src/startup.c
     src/time.c
     src/uart.c
