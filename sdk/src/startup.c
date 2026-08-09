@@ -56,11 +56,6 @@ __attribute__((section(".startup"))) static void initialize_vectors(void) {
 
 __attribute__((noreturn, noinline, used, section(".startup"))) static void
 reset_handler(void) {
-  IOMUXC_GPR_GPR17 = (uint32_t)&_flexram_bank_config;
-  IOMUXC_GPR_GPR16 = 0x00200007u;
-  IOMUXC_GPR_GPR14 = 0x00AA0000u;
-  __asm volatile("dsb" ::: "memory");
-
   /* Match the known-good Teensyduino power and PLL PFD setup.  The PFD
    * registers are writable before ITCM/DTCM initialization because this
    * function executes from flash. */
@@ -114,7 +109,15 @@ reset_handler(void) {
 }
 
 __attribute__((naked, used, section(".startup"))) void ResetHandler(void) {
-  __asm volatile("ldr r0, =_estack\n"
+  __asm volatile("ldr r0, =_flexram_bank_config\n"
+                 "ldr r1, =0x400AC000\n"
+                 "str r0, [r1, #68]\n"
+                 "ldr r0, =0x00200007\n"
+                 "str r0, [r1, #64]\n"
+                 "ldr r0, =0x00AA0000\n"
+                 "str r0, [r1, #56]\n"
+                 "dsb\n"
+                 "ldr r0, =_estack\n"
                  "mov sp, r0\n"
                  "bl reset_handler\n"
                  "1: wfi\n"

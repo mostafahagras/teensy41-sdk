@@ -104,6 +104,11 @@ SECTIONS
     _itcm_block_count = (SIZEOF(.text.itcm) + SIZEOF(.ARM.exidx) + 0x7FFF) >> 15;
     _flexram_bank_config = 0xAAAAAAAA | ((1 << (_itcm_block_count * 2)) - 1);
     _estack = ORIGIN(DTCM) + ((16 - _itcm_block_count) << 15);
+    _stack_guard_size = 32;
+    _minimum_stack_size = 32K;
+    _stack_size = _estack - _ebss - _stack_guard_size;
+    ASSERT(_ebss + _stack_guard_size + _minimum_stack_size <= _estack,
+           "DTCM data leaves less than 32 KiB for the stack")
     _flashimagelen = __text_csf_end - ORIGIN(FLASH);
     _teensy_model_identifier = 0x25;
 
