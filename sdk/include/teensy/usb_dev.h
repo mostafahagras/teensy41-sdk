@@ -49,25 +49,45 @@ struct transfer_struct {
 extern "C" {
 #endif
 
+/** Initializes the USB device controller and endpoint-zero machinery. */
 void usb_controller_init(void);
+
+/** Initializes the USB serial-number descriptor from the device identity. */
 void usb_init_serialnumber(void);
 
+/** Configures a non-isochronous receive endpoint. */
 void usb_config_rx(uint32_t ep, uint32_t packet_size, int do_zlp,
                    void (*cb)(transfer_t *));
+
+/** Configures a non-isochronous transmit endpoint. */
 void usb_config_tx(uint32_t ep, uint32_t packet_size, int do_zlp,
                    void (*cb)(transfer_t *));
+
+/** Configures an isochronous receive endpoint. */
 void usb_config_rx_iso(uint32_t ep, uint32_t packet_size, int mult,
                        void (*cb)(transfer_t *));
+
+/** Configures an isochronous transmit endpoint. */
 void usb_config_tx_iso(uint32_t ep, uint32_t packet_size, int mult,
                        void (*cb)(transfer_t *));
 
+/** Initializes a transfer descriptor for a buffer and callback parameter. */
 void usb_prepare_transfer(transfer_t *transfer, const void *data, uint32_t len,
                           uint32_t param);
+
+/** Queues a prepared transfer on a transmit endpoint. */
 void usb_transmit(int endpoint_number, transfer_t *transfer);
+
+/** Queues a prepared transfer on a receive endpoint. */
 void usb_receive(int endpoint_number, transfer_t *transfer);
+
+/** Returns the current status word of a transfer descriptor. */
 uint32_t usb_transfer_status(const transfer_t *transfer);
 
+/** Enables start-of-frame interrupts for an interface. */
 void usb_start_sof_interrupts(int interface);
+
+/** Disables start-of-frame interrupts for an interface. */
 void usb_stop_sof_interrupts(int interface);
 
 extern void (*usb_timer0_callback)(void);
@@ -83,6 +103,7 @@ extern void (*usb_timer1_callback)(void);
 extern "C" {
 #endif
 
+/** No-op USB controller initialization used when USB is disabled. */
 void usb_controller_init(void);
 
 #ifdef __cplusplus

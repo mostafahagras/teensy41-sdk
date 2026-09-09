@@ -462,10 +462,12 @@ enum IRQ_NUMBER_t {
 
 #ifdef __cplusplus
 extern "C" void (* volatile _VectorsRam[NVIC_NUM_INTERRUPTS+16])(void);
+/** Installs an interrupt handler in the RAM vector table. */
 static inline void attachInterruptVector(IRQ_NUMBER_t irq, void (*function)(void)) __attribute__((always_inline, unused));
 static inline void attachInterruptVector(IRQ_NUMBER_t irq, void (*function)(void)) { _VectorsRam[irq + 16] = function; asm volatile("": : :"memory"); }
 #else
 extern void (* volatile _VectorsRam[NVIC_NUM_INTERRUPTS+16])(void);
+/** Installs an interrupt handler in the RAM vector table. */
 static inline void attachInterruptVector(enum IRQ_NUMBER_t irq, void (*function)(void)) __attribute__((always_inline, unused));
 static inline void attachInterruptVector(enum IRQ_NUMBER_t irq, void (*function)(void)) { _VectorsRam[irq + 16] = function; asm volatile("": : :"memory"); }
 #endif
@@ -10414,4 +10416,3 @@ struct crashreport_breadcrumbs_struct {
 	uint32_t value[6];
 	uint32_t checksum; // currently unused
 };
-

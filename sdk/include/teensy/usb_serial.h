@@ -42,16 +42,29 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/** Resets USB CDC serial state and queues. */
 void usb_serial_reset(void);
+/** Configures the primary USB CDC serial interface. */
 void usb_serial_configure(void);
+/** Reads and removes one received byte, or returns -1 when none is
+ * available.
+ */
 int usb_serial_getchar(void);
+/** Returns the next received byte without removing it, or -1 when empty. */
 int usb_serial_peekchar(void);
+/** Returns the number of received bytes available to read. */
 int usb_serial_available(void);
+/** Reads up to @p size received bytes and returns the number read. */
 int usb_serial_read(void *buffer, uint32_t size);
+/** Discards all buffered input on the primary CDC interface. */
 void usb_serial_flush_input(void);
+/** Queues one byte and returns 1 on success or 0 on failure. */
 int usb_serial_putchar(uint8_t c);
+/** Queues up to @p size bytes and returns the number accepted. */
 int usb_serial_write(const void *buffer, uint32_t size);
+/** Returns the primary CDC transmit buffer's available capacity. */
 int usb_serial_write_buffer_free(void);
+/** Requests immediate transmission of buffered primary CDC output. */
 void usb_serial_flush_output(void);
 extern uint32_t usb_cdc_line_coding[2];
 extern volatile uint32_t usb_cdc_line_rtsdtr_millis;
@@ -59,6 +72,7 @@ extern volatile uint32_t systick_millis_count;
 extern volatile uint8_t usb_cdc_line_rtsdtr;
 extern volatile uint8_t usb_cdc_transmit_flush_timer;
 extern volatile uint8_t usb_configuration;
+/** Optional callback invoked when primary USB CDC data is available. */
 extern void serialEvent(void) __attribute__((weak));
 #ifdef __cplusplus
 }
@@ -249,20 +263,31 @@ extern usb_serial_class Serial;
 #ifdef __cplusplus
 extern "C" {
 #endif
+/** Configures the second USB CDC serial interface. */
 void usb_serial2_configure(void);
+/** Reads one byte from the second CDC interface, or -1 when empty. */
 int usb_serial2_getchar(void);
+/** Peeks one byte from the second CDC interface, or -1 when empty. */
 int usb_serial2_peekchar(void);
+/** Returns the number of bytes available on the second CDC interface. */
 int usb_serial2_available(void);
+/** Reads up to @p size bytes from the second CDC interface. */
 int usb_serial2_read(void *buffer, uint32_t size);
+/** Discards buffered input on the second CDC interface. */
 void usb_serial2_flush_input(void);
+/** Queues one byte on the second CDC interface. */
 int usb_serial2_putchar(uint8_t c);
+/** Queues bytes on the second CDC interface and returns the number accepted. */
 int usb_serial2_write(const void *buffer, uint32_t size);
+/** Returns available transmit capacity on the second CDC interface. */
 int usb_serial2_write_buffer_free(void);
+/** Requests immediate transmission on the second CDC interface. */
 void usb_serial2_flush_output(void);
 extern uint32_t usb_cdc2_line_coding[2];
 extern volatile uint32_t usb_cdc2_line_rtsdtr_millis;
 extern volatile uint8_t usb_cdc2_line_rtsdtr;
 extern volatile uint8_t usb_cdc2_transmit_flush_timer;
+/** Optional callback invoked when second-interface CDC data is available. */
 extern void serialEventUSB1(void) __attribute__((weak));
 #ifdef __cplusplus
 }
@@ -348,20 +373,31 @@ extern usb_serial2_class SerialUSB1;
 #ifdef __cplusplus
 extern "C" {
 #endif
+/** Configures the third USB CDC serial interface. */
 void usb_serial3_configure(void);
+/** Reads one byte from the third CDC interface, or -1 when empty. */
 int usb_serial3_getchar(void);
+/** Peeks one byte from the third CDC interface, or -1 when empty. */
 int usb_serial3_peekchar(void);
+/** Returns the number of bytes available on the third CDC interface. */
 int usb_serial3_available(void);
+/** Reads up to @p size bytes from the third CDC interface. */
 int usb_serial3_read(void *buffer, uint32_t size);
+/** Discards buffered input on the third CDC interface. */
 void usb_serial3_flush_input(void);
+/** Queues one byte on the third CDC interface. */
 int usb_serial3_putchar(uint8_t c);
+/** Queues bytes on the third CDC interface and returns the number accepted. */
 int usb_serial3_write(const void *buffer, uint32_t size);
+/** Returns available transmit capacity on the third CDC interface. */
 int usb_serial3_write_buffer_free(void);
+/** Requests immediate transmission on the third CDC interface. */
 void usb_serial3_flush_output(void);
 extern uint32_t usb_cdc3_line_coding[2];
 extern volatile uint32_t usb_cdc3_line_rtsdtr_millis;
 extern volatile uint8_t usb_cdc3_line_rtsdtr;
 extern volatile uint8_t usb_cdc3_transmit_flush_timer;
+/** Optional callback invoked when third-interface CDC data is available. */
 extern void serialEventUSB2(void) __attribute__((weak));
 #ifdef __cplusplus
 }

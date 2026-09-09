@@ -26,11 +26,34 @@ typedef enum {
 #define uart7 ((uart_id_t)UART_ID_7)
 #define uart8 ((uart_id_t)UART_ID_8)
 
+/** Initializes a UART with 8 data bits, no parity, and one stop bit.
+ * @return 0 on success, or -1 if the UART or baud rate is invalid.
+ */
 int uart_init(uart_id_t uart, uint32_t baud_rate);
+
+/** Returns the number of received bytes currently buffered, or -1 for an
+ * invalid UART.
+ */
 int uart_available(uart_id_t uart);
+
+/** Reads one buffered byte.
+ * @return The byte as an unsigned value, or -1 if no byte is available or the
+ * UART is invalid.
+ */
 int uart_read(uart_id_t uart);
+
+/** Queues bytes for transmission until the transmit buffer is full.
+ * @return The number of bytes queued, which may be less than @p length, or 0
+ * if the UART or buffer is invalid.
+ */
 size_t uart_write(uart_id_t uart, const void *data, size_t length);
+
+/** Queues one byte for transmission.
+ * @return 0 on success, or -1 if the UART is invalid or its buffer is full.
+ */
 int uart_write_byte(uart_id_t uart, uint8_t byte);
+
+/** Blocks until all buffered bytes have been transmitted. */
 void uart_flush(uart_id_t uart);
 
 #endif

@@ -27,9 +27,24 @@ enum {
   I2C_ERROR_FIFO = -5
 };
 
+/** Initializes an I2C controller as a master at the requested bus frequency.
+ * @return I2C_OK on success, or an I2C error code on failure.
+ */
 int i2c_init(i2c_id_t bus, uint32_t frequency_hz);
+
+/** Writes bytes to a 7-bit I2C device address.
+ * @return I2C_OK on success, or an I2C error code on failure.
+ */
 int i2c_write(i2c_id_t bus, uint8_t address, const void *data, size_t length);
+
+/** Reads bytes from a 7-bit I2C device address.
+ * @return I2C_OK on success, or an I2C error code on failure.
+ */
 int i2c_read(i2c_id_t bus, uint8_t address, void *data, size_t length);
+
+/** Writes and then reads in one transaction using a repeated start.
+ * @return I2C_OK on success, or an I2C error code on failure.
+ */
 int i2c_write_read(i2c_id_t bus, uint8_t address, const void *write_data,
                    size_t write_length, void *read_data, size_t read_length);
 

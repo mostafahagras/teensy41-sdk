@@ -21,7 +21,7 @@ enum {
   WATCHDOG_ERROR_TIMEOUT = -3,
 };
 
-/*
+/**
  * Starts RTWDOG (WDOG3) with a nominal timeout rounded up to the next LPO tick.
  * The watchdog continues running in chip Wait mode, which the SDK uses for
  * WFI-based delays.  It pauses in Stop and Debug modes; window and pre-timeout
@@ -31,19 +31,23 @@ enum {
  * change an already-running watchdog and watchdog_disable() may stop it.  If
  * an already-running watchdog has updates disabled, reconfiguration returns
  * WATCHDOG_ERROR_LOCKED.
+ *
+ * @return WATCHDOG_OK on success, or a watchdog error code on failure.
  */
 int watchdog_init(uint32_t timeout_ms);
 
-/* Refreshes a watchdog started by watchdog_init(). */
+/** Refreshes a watchdog started by watchdog_init(). */
 void watchdog_feed(void);
 
-/* Stops a watchdog started with an updateable configuration. */
+/** Stops a watchdog started with an updateable configuration.
+ * @return WATCHDOG_OK on success, or a watchdog error code on failure.
+ */
 int watchdog_disable(void);
 
-/* Returns whether RTWDOG is currently enabled. */
+/** Returns whether RTWDOG is currently enabled. */
 bool watchdog_is_enabled(void);
 
-/* Returns whether the current boot was caused by RTWDOG (WDOG3). */
+/** Returns whether the current boot was caused by RTWDOG (WDOG3). */
 bool watchdog_was_reset(void);
 
 #endif
