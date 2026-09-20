@@ -16,8 +16,8 @@ typedef struct {
   IMXRT_LPI2C_t *port;
   volatile uint32_t *clock_gate;
   uint32_t clock_gate_mask;
-  uint8_t sda_pin;
-  uint8_t scl_pin;
+  teensy_gpio_pin_t sda_gpio;
+  teensy_gpio_pin_t scl_gpio;
   volatile uint32_t *sda_mux;
   volatile uint32_t *sda_pad;
   volatile uint32_t *sda_select;
@@ -31,22 +31,34 @@ typedef struct {
 } i2c_config_t;
 
 static const i2c_config_t i2c_configs[I2C_COUNT] = {
-    [I2C_ID_1] = {&IMXRT_LPI2C1, &CCM_CCGR2, CCM_CCGR2_LPI2C1(CCM_CCGR_ON), 18,
-                  19, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_01,
-                  &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_01,
-                  &IOMUXC_LPI2C1_SDA_SELECT_INPUT, 3u | 0x10u, 1,
-                  &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_00,
-                  &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_00,
-                  &IOMUXC_LPI2C1_SCL_SELECT_INPUT, 3u | 0x10u, 1},
-    [I2C_ID_3] = {&IMXRT_LPI2C3, &CCM_CCGR2, CCM_CCGR2_LPI2C3(CCM_CCGR_ON), 17,
-                  16, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
-                  &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_06,
-                  &IOMUXC_LPI2C3_SDA_SELECT_INPUT, 1u | 0x10u, 2,
-                  &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
-                  &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07,
-                  &IOMUXC_LPI2C3_SCL_SELECT_INPUT, 1u | 0x10u, 2},
+    [I2C_ID_1] =
+        {&IMXRT_LPI2C1, &CCM_CCGR2, CCM_CCGR2_LPI2C1(CCM_CCGR_ON),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 17, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_01,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_01),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 16, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_00,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_00),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_01,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_01, &IOMUXC_LPI2C1_SDA_SELECT_INPUT,
+         3u | 0x10u, 1, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_00,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_00, &IOMUXC_LPI2C1_SCL_SELECT_INPUT,
+         3u | 0x10u, 1},
+    [I2C_ID_3] =
+        {&IMXRT_LPI2C3, &CCM_CCGR2, CCM_CCGR2_LPI2C3(CCM_CCGR_ON),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 22, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_06),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 23, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_06, &IOMUXC_LPI2C3_SDA_SELECT_INPUT,
+         1u | 0x10u, 2, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07, &IOMUXC_LPI2C3_SCL_SELECT_INPUT,
+         1u | 0x10u, 2},
     [I2C_ID_4] = {
-        &IMXRT_LPI2C4, &CCM_CCGR6, CCM_CCGR6_LPI2C4_SERIAL(CCM_CCGR_ON), 25, 24,
+        &IMXRT_LPI2C4, &CCM_CCGR6, CCM_CCGR6_LPI2C4_SERIAL(CCM_CCGR_ON),
+        TEENSY_GPIO_PIN_DESCRIPTOR(6, 13, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
+                                   IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_13),
+        TEENSY_GPIO_PIN_DESCRIPTOR(6, 12, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12,
+                                   IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_12),
         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_13, &IOMUXC_LPI2C4_SDA_SELECT_INPUT,
         0x10u, 1, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12,
@@ -121,8 +133,8 @@ int i2c_init(i2c_id_t bus, uint32_t frequency_hz) {
   config = &i2c_configs[bus];
   port = config->port;
 
-  if (gpio_configure(config->sda_pin, GPIO_INPUT) != 0 ||
-      gpio_configure(config->scl_pin, GPIO_INPUT) != 0) {
+  if (teensy_gpio_configure_pin(&config->sda_gpio, GPIO_INPUT) != 0 ||
+      teensy_gpio_configure_pin(&config->scl_gpio, GPIO_INPUT) != 0) {
     return I2C_ERROR_INVALID;
   }
   *config->clock_gate |= config->clock_gate_mask;

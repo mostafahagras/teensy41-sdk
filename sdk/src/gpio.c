@@ -2,147 +2,21 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define TEENSY_GPIO_IMPLEMENTATION
 #include <teensy/gpio.h>
 #include <teensy/imxrt.h>
 
-typedef struct {
-  volatile uint32_t *data;
-  volatile uint32_t *direction;
-  volatile uint32_t *input;
-  volatile uint32_t *set;
-  volatile uint32_t *clear;
-  volatile uint32_t *toggle;
-  volatile uint32_t *mux;
-  volatile uint32_t *pad;
-  uint32_t mask;
-  uint8_t port;
-  uint8_t bit;
-} gpio_pin_t;
-
 #define GPIO_PIN(port_number, pin_bit, mux_register, pad_register)             \
-  {&GPIO##port_number##_DR,                                                    \
-   &GPIO##port_number##_GDIR,                                                  \
-   &GPIO##port_number##_PSR,                                                   \
-   &GPIO##port_number##_DR_SET,                                                \
-   &GPIO##port_number##_DR_CLEAR,                                              \
-   &GPIO##port_number##_DR_TOGGLE,                                             \
-   &(mux_register),                                                            \
-   &(pad_register),                                                            \
-   (uint32_t)1u << (pin_bit),                                                  \
-   (uint8_t)((port_number) - 6u),                                              \
-   (uint8_t)(pin_bit)}
+  TEENSY_GPIO_PIN_DESCRIPTOR(port_number, pin_bit, mux_register, pad_register)
 
-static const gpio_pin_t gpio_pins[55] = {
-    GPIO_PIN(6, 3, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_03,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_03),
-    GPIO_PIN(6, 2, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_02,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_02),
-    GPIO_PIN(9, 4, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_04,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_04),
-    GPIO_PIN(9, 5, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_05,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_05),
-    GPIO_PIN(9, 6, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_06,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_06),
-    GPIO_PIN(9, 8, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_08,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_08),
-    GPIO_PIN(7, 10, IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_10,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_10),
-    GPIO_PIN(7, 17, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_01),
-    GPIO_PIN(7, 16, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_00,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_00),
-    GPIO_PIN(7, 11, IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_11,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_11),
-    GPIO_PIN(7, 0, IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_00,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_00),
-    GPIO_PIN(7, 2, IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_02,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_02),
-    GPIO_PIN(7, 1, IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_01,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_01),
-    GPIO_PIN(7, 3, IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_03,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_03),
-    GPIO_PIN(6, 18, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_02,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_02),
-    GPIO_PIN(6, 19, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_03),
-    GPIO_PIN(6, 23, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07),
-    GPIO_PIN(6, 22, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_06),
-    GPIO_PIN(6, 17, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_01,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_01),
-    GPIO_PIN(6, 16, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_00,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_00),
-    GPIO_PIN(6, 26, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_10,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_10),
-    GPIO_PIN(6, 27, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_11),
-    GPIO_PIN(6, 24, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_08,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_08),
-    GPIO_PIN(6, 25, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_09,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_09),
-    GPIO_PIN(6, 12, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_12),
-    GPIO_PIN(6, 13, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_13),
-    GPIO_PIN(6, 30, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_14,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_14),
-    GPIO_PIN(6, 31, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_15,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_15),
-    GPIO_PIN(8, 18, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_32,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_32),
-    GPIO_PIN(9, 31, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_31,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_31),
-    GPIO_PIN(8, 23, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_37,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_37),
-    GPIO_PIN(8, 22, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_36,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_36),
-    GPIO_PIN(7, 12, IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_12,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B0_12),
-    GPIO_PIN(9, 7, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_07,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_07),
-    GPIO_PIN(7, 29, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_13,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_13),
-    GPIO_PIN(7, 28, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_12,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_12),
-    GPIO_PIN(7, 18, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_02,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_02),
-    GPIO_PIN(7, 19, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_03,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_03),
-    GPIO_PIN(6, 28, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_12,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_12),
-    GPIO_PIN(6, 29, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_13,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_13),
-    GPIO_PIN(6, 20, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_04,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_04),
-    GPIO_PIN(6, 21, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_05,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_05),
-    GPIO_PIN(8, 15, IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_03,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_SD_B0_03),
-    GPIO_PIN(8, 14, IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_02,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_SD_B0_02),
-    GPIO_PIN(8, 13, IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_01,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_SD_B0_01),
-    GPIO_PIN(8, 12, IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_00,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_SD_B0_00),
-    GPIO_PIN(8, 17, IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_05,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_SD_B0_05),
-    GPIO_PIN(8, 16, IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_04,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_SD_B0_04),
-    GPIO_PIN(9, 24, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_24,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_24),
-    GPIO_PIN(9, 27, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_27,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_27),
-    GPIO_PIN(9, 28, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_28,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_28),
-    GPIO_PIN(9, 22, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_22,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_22),
-    GPIO_PIN(9, 26, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_26,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_26),
-    GPIO_PIN(9, 25, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_25,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_25),
-    GPIO_PIN(9, 29, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_29,
-             IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_29)};
+#define GPIO_PIN_ENTRY(number, port_number, pin_bit, mux_register,             \
+                       pad_register)                                           \
+  GPIO_PIN(port_number, pin_bit, mux_register, pad_register),
+
+static const teensy_gpio_pin_t gpio_pins[TEENSY_GPIO_PIN_COUNT] = {
+    TEENSY_GPIO_PIN_MAP(GPIO_PIN_ENTRY)};
+
+#undef GPIO_PIN_ENTRY
 
 typedef struct {
   volatile uint32_t *interrupt_status;
@@ -163,11 +37,13 @@ static void *gpio_handler_contexts[4][32];
 
 void gpio_irq_handler(void);
 
-static const gpio_pin_t *gpio_pin(uint8_t pin) {
+static const teensy_gpio_pin_t *gpio_pin(uint8_t pin) {
   return pin < (uint8_t)(sizeof(gpio_pins) / sizeof(gpio_pins[0]))
              ? &gpio_pins[pin]
              : NULL;
 }
+
+const teensy_gpio_pin_t *gpio_pin_runtime(uint8_t pin) { return gpio_pin(pin); }
 
 static uint32_t gpio_pad_for_mode(gpio_mode_t mode) {
   switch (mode) {
@@ -190,7 +66,7 @@ static uint32_t gpio_pad_for_mode(gpio_mode_t mode) {
 void gpio_init(void) { attachInterruptVector(IRQ_GPIO6789, gpio_irq_handler); }
 
 int gpio_configure(uint8_t pin_number, gpio_mode_t mode) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
+  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
   uint32_t pad;
 
   if (pin == NULL || mode > GPIO_OUTPUT_OPEN_DRAIN)
@@ -208,7 +84,7 @@ int gpio_configure(uint8_t pin_number, gpio_mode_t mode) {
 }
 
 int gpio_write(uint8_t pin_number, bool high) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
+  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
 
   if (pin == NULL)
     return -1;
@@ -221,7 +97,7 @@ int gpio_write(uint8_t pin_number, bool high) {
 }
 
 int gpio_read(uint8_t pin_number, bool *high) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
+  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
 
   if (pin == NULL || high == NULL)
     return -1;
@@ -230,7 +106,7 @@ int gpio_read(uint8_t pin_number, bool *high) {
 }
 
 int gpio_toggle(uint8_t pin_number) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
+  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
 
   if (pin == NULL)
     return -1;
@@ -260,9 +136,9 @@ __attribute__((section(".fastrun"))) void gpio_irq_handler(void) {
   __asm volatile("dsb" ::: "memory");
 }
 
-int gpio_attach_interrupt(uint8_t pin_number, gpio_interrupt_mode_t mode,
-                          gpio_interrupt_handler_t handler, void *context) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
+int gpio_attach_interrupt_pin(const teensy_gpio_pin_t *pin,
+                              gpio_interrupt_mode_t mode,
+                              gpio_interrupt_handler_t handler, void *context) {
   const gpio_interrupt_port_t *registers;
   uint32_t icr;
   uint32_t shift;
@@ -270,7 +146,7 @@ int gpio_attach_interrupt(uint8_t pin_number, gpio_interrupt_mode_t mode,
   if (pin == NULL || handler == NULL || mode > GPIO_INTERRUPT_HIGH) {
     return -1;
   }
-  if (gpio_configure(pin_number, GPIO_INPUT) != 0)
+  if (teensy_gpio_configure_pin(pin, GPIO_INPUT) != 0)
     return -1;
 
   registers = &gpio_interrupt_ports[pin->port];
@@ -326,8 +202,13 @@ enable_interrupt:
   return 0;
 }
 
-int gpio_detach_interrupt(uint8_t pin_number) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
+int gpio_attach_interrupt(uint8_t pin_number, gpio_interrupt_mode_t mode,
+                          gpio_interrupt_handler_t handler, void *context) {
+  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  return gpio_attach_interrupt_pin(pin, mode, handler, context);
+}
+
+int gpio_detach_interrupt_pin(const teensy_gpio_pin_t *pin) {
   const gpio_interrupt_port_t *registers;
 
   if (pin == NULL)
@@ -339,4 +220,9 @@ int gpio_detach_interrupt(uint8_t pin_number) {
   gpio_handler_contexts[pin->port][pin->bit] = NULL;
   __enable_irq();
   return 0;
+}
+
+int gpio_detach_interrupt(uint8_t pin_number) {
+  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  return gpio_detach_interrupt_pin(pin);
 }

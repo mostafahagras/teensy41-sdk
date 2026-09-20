@@ -33,14 +33,8 @@
 #include <teensy/clock.h>
 #include <teensy/gpio.h>
 #include <teensy/imxrt.h>
+#define TEENSY_PWM_IMPLEMENTATION
 #include <teensy/pwm.h>
-
-struct pwm_pin_info_struct {
-  uint8_t type;    // 0=no pwm, 1=flexpwm, 2=quad
-  uint8_t module;  // 0-3, 0-3
-  uint8_t channel; // 0=X, 1=A, 2=B
-  uint8_t muxval;  //
-};
 
 static uint8_t pwm_resolution_bits = 8;
 
@@ -48,7 +42,7 @@ static uint8_t pwm_resolution_bits = 8;
 
 #if defined(__IMXRT1062__)
 
-const struct pwm_pin_info_struct pwm_pin_info[] = {
+const teensy_pwm_pin_info_t pwm_pin_info[] = {
     {1, M(1, 1), 0, 4}, // FlexPWM1_1_X   0  // AD_B0_03
     {1, M(1, 0), 0, 4}, // FlexPWM1_0_X   1  // AD_B0_02
     {1, M(4, 2), 1, 1}, // FlexPWM4_2_A   2  // EMC_04
@@ -159,36 +153,6 @@ const struct pwm_pin_info_struct pwm_pin_info[] = {
 
 #endif // __IMXRT1062__
 
-static volatile uint32_t *const pwm_mux_registers[55] = {
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_03, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_02,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_04,   &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_05,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_06,   &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_08,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_10,    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_00,    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_11,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_00,    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_02,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_01,    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_03,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_02, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_01, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_00,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_10, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_08, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_09,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_14, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_15,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_32,   &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_31,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_37,   &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_36,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B0_12,    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_07,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_13,    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_12,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_02,    &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_03,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_12, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_13,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_04, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_05,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_03, &IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_02,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_01, &IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_00,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_05, &IOMUXC_SW_MUX_CTL_PAD_GPIO_SD_B0_04,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_24,   &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_27,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_28,   &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_22,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_26,   &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_25,
-    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_29};
-
 void flexpwmWrite(IMXRT_FLEXPWM_t *p, unsigned int submodule, uint8_t channel,
                   uint16_t val) {
   uint16_t mask = 1 << submodule;
@@ -277,12 +241,10 @@ void quadtimerFrequency(IMXRT_TMR_t *p, unsigned int submodule,
                           TMR_CTRL_LENGTH | TMR_CTRL_OUTMODE(6);
 }
 
-int pwm_write(uint8_t pin, uint32_t val) {
-  const struct pwm_pin_info_struct *info;
-
-  if (pin >= 55)
+int pwm_write_info(const teensy_pwm_pin_info_t *info,
+                   const teensy_gpio_pin_t *gpio, uint32_t val) {
+  if (info == NULL || gpio == NULL)
     return -1;
-  info = pwm_pin_info + pin;
   if (info->type == 1) {
     // FlexPWM pin
     IMXRT_FLEXPWM_t *flexpwm;
@@ -320,23 +282,27 @@ int pwm_write(uint8_t pin, uint32_t val) {
   } else {
     return -1;
   }
-  if (gpio_configure(pin, GPIO_OUTPUT) != 0)
+  if (teensy_gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
     return -1;
-  *pwm_mux_registers[pin] = info->muxval;
+  *gpio->mux = info->muxval;
   return 0;
 }
 
-int pwm_set_frequency(uint8_t pin, float frequency) {
-  const struct pwm_pin_info_struct *info;
-
-  if (pin >= 55 || frequency <= 0.0f)
+int pwm_write(uint8_t pin, uint32_t val) {
+  if (pin >= TEENSY_GPIO_PIN_COUNT)
     return -1;
-  info = pwm_pin_info + pin;
+  return pwm_write_info(&pwm_pin_info[pin], gpio_pin_runtime(pin), val);
+}
+
+int pwm_set_frequency_info(const teensy_pwm_pin_info_t *info,
+                           const teensy_gpio_pin_t *gpio, float frequency) {
+  if (info == NULL || gpio == NULL || frequency <= 0.0f)
+    return -1;
   if (info->type == 0)
     return -1;
-  if (gpio_configure(pin, GPIO_OUTPUT) != 0)
+  if (teensy_gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
     return -1;
-  *pwm_mux_registers[pin] = info->muxval;
+  *gpio->mux = info->muxval;
   if (info->type == 1) {
     // FlexPWM pin
     IMXRT_FLEXPWM_t *flexpwm;
@@ -374,6 +340,13 @@ int pwm_set_frequency(uint8_t pin, float frequency) {
     quadtimerFrequency(qtimer, info->module & 0x03, frequency);
   }
   return 0;
+}
+
+int pwm_set_frequency(uint8_t pin, float frequency) {
+  if (pin >= TEENSY_GPIO_PIN_COUNT)
+    return -1;
+  return pwm_set_frequency_info(&pwm_pin_info[pin], gpio_pin_runtime(pin),
+                                frequency);
 }
 
 void flexpwm_init(IMXRT_FLEXPWM_t *p) {

@@ -17,8 +17,8 @@ typedef struct {
   uint32_t clock_gate_mask;
   enum IRQ_NUMBER_t irq;
   void (*irq_handler)(void);
-  uint8_t rx_pin;
-  uint8_t tx_pin;
+  teensy_gpio_pin_t rx_gpio;
+  teensy_gpio_pin_t tx_gpio;
   volatile uint32_t *rx_mux;
   volatile uint32_t *rx_pad;
   volatile uint32_t *rx_select;
@@ -54,53 +54,83 @@ static void uart_irq_handler7(void) { uart_irq_handler(uart7); }
 static void uart_irq_handler8(void) { uart_irq_handler(uart8); }
 
 static const uart_config_t uart_configs[UART_COUNT] = {
-    [UART_ID_1] = {&IMXRT_LPUART1, &CCM_CCGR5, CCM_CCGR5_LPUART1(CCM_CCGR_ON),
-                   IRQ_LPUART1, uart_irq_handler1, 25, 24,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_13, NULL, 2, 0,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_12, NULL, 2, 0},
-    [UART_ID_2] = {&IMXRT_LPUART2, &CCM_CCGR0, CCM_CCGR0_LPUART2(CCM_CCGR_ON),
-                   IRQ_LPUART2, uart_irq_handler2, 15, 14,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_03,
-                   &IOMUXC_LPUART2_RX_SELECT_INPUT, 2, 1,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_02,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_02,
-                   &IOMUXC_LPUART2_TX_SELECT_INPUT, 2, 1},
-    [UART_ID_3] = {&IMXRT_LPUART3, &CCM_CCGR0, CCM_CCGR0_LPUART3(CCM_CCGR_ON),
-                   IRQ_LPUART3, uart_irq_handler3, 16, 17,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07,
-                   &IOMUXC_LPUART3_RX_SELECT_INPUT, 2, 0,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_06,
-                   &IOMUXC_LPUART3_TX_SELECT_INPUT, 2, 0},
-    [UART_ID_4] = {&IMXRT_LPUART4, &CCM_CCGR1, CCM_CCGR1_LPUART4(CCM_CCGR_ON),
-                   IRQ_LPUART4, uart_irq_handler4, 7, 8,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_01,
-                   &IOMUXC_LPUART4_RX_SELECT_INPUT, 2, 2,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_00,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_00,
-                   &IOMUXC_LPUART4_TX_SELECT_INPUT, 2, 2},
-    [UART_ID_5] = {&IMXRT_LPUART5, &CCM_CCGR3, CCM_CCGR3_LPUART5(CCM_CCGR_ON),
-                   IRQ_LPUART5, uart_irq_handler5, 34, 35,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_13,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_13,
-                   &IOMUXC_LPUART5_RX_SELECT_INPUT, 1, 1,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_12,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_12, NULL, 1, 0},
-    [UART_ID_6] = {&IMXRT_LPUART6, &CCM_CCGR3, CCM_CCGR3_LPUART6(CCM_CCGR_ON),
-                   IRQ_LPUART6, uart_irq_handler6, 0, 1,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_03,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_03,
-                   &IOMUXC_LPUART6_RX_SELECT_INPUT, 2, 1,
-                   &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_02,
-                   &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_02,
-                   &IOMUXC_LPUART6_TX_SELECT_INPUT, 2, 0},
+    [UART_ID_1] =
+        {&IMXRT_LPUART1, &CCM_CCGR5, CCM_CCGR5_LPUART1(CCM_CCGR_ON),
+         IRQ_LPUART1, uart_irq_handler1,
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 13, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_13),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 12, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_12),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_13, NULL, 2, 0,
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_12, NULL, 2, 0},
+    [UART_ID_2] =
+        {&IMXRT_LPUART2, &CCM_CCGR0, CCM_CCGR0_LPUART2(CCM_CCGR_ON),
+         IRQ_LPUART2, uart_irq_handler2,
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 19, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_03),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 18, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_02,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_02),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_03, &IOMUXC_LPUART2_RX_SELECT_INPUT,
+         2, 1, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_02,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_02, &IOMUXC_LPUART2_TX_SELECT_INPUT,
+         2, 1},
+    [UART_ID_3] =
+        {&IMXRT_LPUART3, &CCM_CCGR0, CCM_CCGR0_LPUART3(CCM_CCGR_ON),
+         IRQ_LPUART3, uart_irq_handler3,
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 23, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 22, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_06),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07, &IOMUXC_LPUART3_RX_SELECT_INPUT,
+         2, 0, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_06, &IOMUXC_LPUART3_TX_SELECT_INPUT,
+         2, 0},
+    [UART_ID_4] =
+        {&IMXRT_LPUART4, &CCM_CCGR1, CCM_CCGR1_LPUART4(CCM_CCGR_ON),
+         IRQ_LPUART4, uart_irq_handler4,
+         TEENSY_GPIO_PIN_DESCRIPTOR(7, 17, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_01),
+         TEENSY_GPIO_PIN_DESCRIPTOR(7, 16, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_00,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_00),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01, &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_01,
+         &IOMUXC_LPUART4_RX_SELECT_INPUT, 2, 2,
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_00, &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_00,
+         &IOMUXC_LPUART4_TX_SELECT_INPUT, 2, 2},
+    [UART_ID_5] =
+        {&IMXRT_LPUART5, &CCM_CCGR3, CCM_CCGR3_LPUART5(CCM_CCGR_ON),
+         IRQ_LPUART5, uart_irq_handler5,
+         TEENSY_GPIO_PIN_DESCRIPTOR(7, 29, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_13,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_13),
+         TEENSY_GPIO_PIN_DESCRIPTOR(7, 28, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_12,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_12),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_13, &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_13,
+         &IOMUXC_LPUART5_RX_SELECT_INPUT, 1, 1,
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_12, &IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_12,
+         NULL, 1, 0},
+    [UART_ID_6] =
+        {&IMXRT_LPUART6, &CCM_CCGR3, CCM_CCGR3_LPUART6(CCM_CCGR_ON),
+         IRQ_LPUART6, uart_irq_handler6,
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 3, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_03,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_03),
+         TEENSY_GPIO_PIN_DESCRIPTOR(6, 2, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_02,
+                                    IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_02),
+         &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_03,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_03, &IOMUXC_LPUART6_RX_SELECT_INPUT,
+         2, 1, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_02,
+         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_02, &IOMUXC_LPUART6_TX_SELECT_INPUT,
+         2, 0},
     [UART_ID_7] = {&IMXRT_LPUART7, &CCM_CCGR5, CCM_CCGR5_LPUART7(CCM_CCGR_ON),
-                   IRQ_LPUART7, uart_irq_handler7, 28, 29,
+                   IRQ_LPUART7, uart_irq_handler7,
+                   TEENSY_GPIO_PIN_DESCRIPTOR(
+                       8, 18, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_32,
+                       IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_32),
+                   TEENSY_GPIO_PIN_DESCRIPTOR(
+                       9, 31, IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_31,
+                       IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_31),
                    &IOMUXC_SW_MUX_CTL_PAD_GPIO_EMC_32,
                    &IOMUXC_SW_PAD_CTL_PAD_GPIO_EMC_32,
                    &IOMUXC_LPUART7_RX_SELECT_INPUT, 2, 1,
@@ -109,7 +139,12 @@ static const uart_config_t uart_configs[UART_COUNT] = {
                    &IOMUXC_LPUART7_TX_SELECT_INPUT, 2, 0},
     [UART_ID_8] = {
         &IMXRT_LPUART8, &CCM_CCGR6, CCM_CCGR6_LPUART8(CCM_CCGR_ON), IRQ_LPUART8,
-        uart_irq_handler8, 21, 20, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11,
+        uart_irq_handler8,
+        TEENSY_GPIO_PIN_DESCRIPTOR(6, 27, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11,
+                                   IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_11),
+        TEENSY_GPIO_PIN_DESCRIPTOR(6, 26, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_10,
+                                   IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_10),
+        &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11,
         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_11, &IOMUXC_LPUART8_RX_SELECT_INPUT,
         2, 1, &IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_10,
         &IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_10, &IOMUXC_LPUART8_TX_SELECT_INPUT,
@@ -222,8 +257,8 @@ int uart_init(uart_id_t uart, uint32_t baud_rate) {
   state = &uart_states[uart];
   port = config->port;
 
-  if (gpio_configure(config->rx_pin, GPIO_INPUT) != 0 ||
-      gpio_configure(config->tx_pin, GPIO_OUTPUT) != 0) {
+  if (teensy_gpio_configure_pin(&config->rx_gpio, GPIO_INPUT) != 0 ||
+      teensy_gpio_configure_pin(&config->tx_gpio, GPIO_OUTPUT) != 0) {
     return -1;
   }
 
