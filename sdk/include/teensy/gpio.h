@@ -208,9 +208,20 @@ teensy_gpio_detach_interrupt_const(uint8_t pin) {
 }
 
 #ifndef TEENSY_GPIO_IMPLEMENTATION
+#if defined(__clang__)
+static inline void teensy_gpio_validate(uint8_t pin) __attribute__((diagnose_if(
+    pin >= TEENSY_GPIO_PIN_COUNT,
+    "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
+static inline void teensy_gpio_validate(uint8_t pin) { (void)pin; }
+#else
 extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
     error("invalid Teensy GPIO pin; expected a value from 0 to 54")));
+#endif
 
+#if defined(__clang__)
+#define TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin)                                 \
+  teensy_gpio_validate((uint8_t)(pin))
+#else
 #define TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin)                                 \
   ({                                                                           \
     if (__builtin_constant_p(pin) &&                                           \
@@ -218,6 +229,7 @@ extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
       teensy_gpio_invalid_constant_pin();                                      \
     (void)0;                                                                   \
   })
+#endif
 
 #define gpio_configure(pin, mode)                                              \
   ({                                                                           \
