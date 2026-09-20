@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 #include <teensy/gpio.h>
+#include <teensy/imxrt.h>
+#include <teensy/pwm_pin_map.h>
 
 typedef struct {
   uint8_t type;
@@ -39,118 +41,159 @@ int pwm_set_frequency(uint8_t pin, float frequency_hz);
  */
 uint32_t pwm_set_resolution(uint32_t bits);
 
-/* Internal descriptor entry points used by compile-time pin wrappers. */
-int pwm_write_info(const teensy_pwm_pin_info_t *info,
-                   const teensy_gpio_pin_t *gpio, uint32_t value);
-int pwm_set_frequency_info(const teensy_pwm_pin_info_t *info,
-                           const teensy_gpio_pin_t *gpio, float frequency_hz);
+int teensy_pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule,
+                          uint8_t channel, uint8_t muxval,
+                          const teensy_gpio_pin_t *gpio, uint32_t value);
+int teensy_pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
+                          const teensy_gpio_pin_t *gpio, uint32_t value);
+int teensy_pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule,
+                              uint8_t channel, uint8_t muxval,
+                              const teensy_gpio_pin_t *gpio,
+                              float frequency_hz);
+int teensy_pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
+                              const teensy_gpio_pin_t *gpio,
+                              float frequency_hz);
 
-static inline __attribute__((always_inline)) teensy_pwm_pin_info_t
-teensy_pwm_pin_const(uint8_t pin) {
-  switch (pin) {
-  case 0:
-    return (teensy_pwm_pin_info_t){1, 1, 0, 4};
-  case 1:
-    return (teensy_pwm_pin_info_t){1, 0, 0, 4};
-  case 2:
-    return (teensy_pwm_pin_info_t){1, 50, 1, 1};
-  case 3:
-    return (teensy_pwm_pin_info_t){1, 50, 2, 1};
-  case 4:
-    return (teensy_pwm_pin_info_t){1, 16, 1, 1};
-  case 5:
-    return (teensy_pwm_pin_info_t){1, 17, 1, 1};
-  case 6:
-    return (teensy_pwm_pin_info_t){1, 18, 1, 2};
-  case 7:
-    return (teensy_pwm_pin_info_t){1, 19, 2, 6};
-  case 8:
-    return (teensy_pwm_pin_info_t){1, 19, 1, 6};
-  case 9:
-    return (teensy_pwm_pin_info_t){1, 18, 2, 2};
-  case 10:
-    return (teensy_pwm_pin_info_t){2, 0, 0, 1};
-  case 11:
-    return (teensy_pwm_pin_info_t){2, 2, 0, 1};
-  case 12:
-    return (teensy_pwm_pin_info_t){2, 1, 0, 1};
-  case 13:
-    return (teensy_pwm_pin_info_t){2, 16, 0, 1};
-  case 14:
-    return (teensy_pwm_pin_info_t){2, 34, 0, 1};
-  case 15:
-    return (teensy_pwm_pin_info_t){2, 35, 0, 1};
-  case 18:
-    return (teensy_pwm_pin_info_t){2, 33, 0, 1};
-  case 19:
-    return (teensy_pwm_pin_info_t){2, 32, 0, 1};
-  case 22:
-    return (teensy_pwm_pin_info_t){1, 48, 1, 1};
-  case 23:
-    return (teensy_pwm_pin_info_t){1, 49, 1, 1};
-  case 24:
-    return (teensy_pwm_pin_info_t){1, 18, 0, 4};
-  case 25:
-    return (teensy_pwm_pin_info_t){1, 19, 0, 4};
-  case 28:
-    return (teensy_pwm_pin_info_t){1, 33, 2, 1};
-  case 29:
-    return (teensy_pwm_pin_info_t){1, 33, 1, 1};
-  case 33:
-    return (teensy_pwm_pin_info_t){1, 16, 2, 1};
-  case 36:
-    return (teensy_pwm_pin_info_t){1, 19, 1, 6};
-  case 37:
-    return (teensy_pwm_pin_info_t){1, 19, 2, 6};
-  case 42:
-    return (teensy_pwm_pin_info_t){1, 17, 2, 1};
-  case 43:
-    return (teensy_pwm_pin_info_t){1, 17, 1, 1};
-  case 44:
-    return (teensy_pwm_pin_info_t){1, 16, 2, 1};
-  case 45:
-    return (teensy_pwm_pin_info_t){1, 16, 1, 1};
-  case 46:
-    return (teensy_pwm_pin_info_t){1, 18, 2, 1};
-  case 47:
-    return (teensy_pwm_pin_info_t){1, 18, 1, 1};
-  case 51:
-    return (teensy_pwm_pin_info_t){1, 35, 2, 1};
-  case 54:
-    return (teensy_pwm_pin_info_t){1, 32, 1, 1};
-  default:
-    return (teensy_pwm_pin_info_t){0};
-  }
-}
+#define TEENSY_PWM_FLEX_POINTER_0 &IMXRT_FLEXPWM1
+#define TEENSY_PWM_FLEX_POINTER_1 &IMXRT_FLEXPWM1
+#define TEENSY_PWM_FLEX_POINTER_2 &IMXRT_FLEXPWM1
+#define TEENSY_PWM_FLEX_POINTER_16 &IMXRT_FLEXPWM2
+#define TEENSY_PWM_FLEX_POINTER_17 &IMXRT_FLEXPWM2
+#define TEENSY_PWM_FLEX_POINTER_18 &IMXRT_FLEXPWM2
+#define TEENSY_PWM_FLEX_POINTER_19 &IMXRT_FLEXPWM2
+#define TEENSY_PWM_FLEX_POINTER_32 &IMXRT_FLEXPWM3
+#define TEENSY_PWM_FLEX_POINTER_33 &IMXRT_FLEXPWM3
+#define TEENSY_PWM_FLEX_POINTER_34 &IMXRT_FLEXPWM3
+#define TEENSY_PWM_FLEX_POINTER_35 &IMXRT_FLEXPWM3
+#define TEENSY_PWM_FLEX_POINTER_48 &IMXRT_FLEXPWM4
+#define TEENSY_PWM_FLEX_POINTER_49 &IMXRT_FLEXPWM4
+#define TEENSY_PWM_FLEX_POINTER_50 &IMXRT_FLEXPWM4
 
-static inline __attribute__((always_inline)) int
-teensy_pwm_write_const(uint8_t pin, uint32_t value) {
-  teensy_pwm_pin_info_t info = teensy_pwm_pin_const(pin);
+#define TEENSY_PWM_QUAD_POINTER_0 &IMXRT_TMR1
+#define TEENSY_PWM_QUAD_POINTER_1 &IMXRT_TMR1
+#define TEENSY_PWM_QUAD_POINTER_2 &IMXRT_TMR1
+#define TEENSY_PWM_QUAD_POINTER_16 &IMXRT_TMR2
+#define TEENSY_PWM_QUAD_POINTER_17 &IMXRT_TMR2
+#define TEENSY_PWM_QUAD_POINTER_18 &IMXRT_TMR2
+#define TEENSY_PWM_QUAD_POINTER_19 &IMXRT_TMR2
+#define TEENSY_PWM_QUAD_POINTER_32 &IMXRT_TMR3
+#define TEENSY_PWM_QUAD_POINTER_33 &IMXRT_TMR3
+#define TEENSY_PWM_QUAD_POINTER_34 &IMXRT_TMR3
+#define TEENSY_PWM_QUAD_POINTER_35 &IMXRT_TMR3
+#define TEENSY_PWM_QUAD_POINTER_48 &IMXRT_TMR4
+#define TEENSY_PWM_QUAD_POINTER_49 &IMXRT_TMR4
+#define TEENSY_PWM_QUAD_POINTER_50 &IMXRT_TMR4
+
+static inline
+    __attribute__((always_inline)) int teensy_pwm_write_const(uint8_t pin,
+                                                              uint32_t value) {
   teensy_gpio_pin_t gpio = teensy_gpio_pin_const(pin);
-  return pwm_write_info(&info, &gpio, value);
+
+#define TEENSY_PWM_WRITE_CASE(number, type, module, channel, muxval)           \
+  case number:                                                                 \
+    if (type == 1)                                                             \
+      return teensy_pwm_write_flex(TEENSY_PWM_FLEX_POINTER_##module,           \
+                                   (module) & 3u, channel, muxval, &gpio,      \
+                                   value);                                     \
+    if (type == 2)                                                             \
+      return teensy_pwm_write_quad(TEENSY_PWM_QUAD_POINTER_##module,           \
+                                   (module) & 3u, muxval, &gpio, value);       \
+    return -1;
+
+  switch (pin) {
+    TEENSY_PWM_PIN_MAP(TEENSY_PWM_WRITE_CASE)
+  default:
+    return -1;
+  }
+#undef TEENSY_PWM_WRITE_CASE
 }
 
 static inline __attribute__((always_inline)) int
 teensy_pwm_set_frequency_const(uint8_t pin, float frequency_hz) {
-  teensy_pwm_pin_info_t info = teensy_pwm_pin_const(pin);
   teensy_gpio_pin_t gpio = teensy_gpio_pin_const(pin);
-  return pwm_set_frequency_info(&info, &gpio, frequency_hz);
+
+#define TEENSY_PWM_FREQUENCY_CASE(number, type, module, channel, muxval)       \
+  case number:                                                                 \
+    if (type == 1)                                                             \
+      return teensy_pwm_frequency_flex(TEENSY_PWM_FLEX_POINTER_##module,       \
+                                       (module) & 3u, channel, muxval, &gpio,  \
+                                       frequency_hz);                          \
+    if (type == 2)                                                             \
+      return teensy_pwm_frequency_quad(TEENSY_PWM_QUAD_POINTER_##module,       \
+                                       (module) & 3u, muxval, &gpio,           \
+                                       frequency_hz);                          \
+    return -1;
+
+  switch (pin) {
+    TEENSY_PWM_PIN_MAP(TEENSY_PWM_FREQUENCY_CASE)
+  default:
+    return -1;
+  }
+#undef TEENSY_PWM_FREQUENCY_CASE
 }
 
 #ifndef TEENSY_PWM_IMPLEMENTATION
+#define TEENSY_PWM_PIN_VALID(pin)                                              \
+  ((pin) == (uint8_t)(pin) && (uint8_t)(pin) < TEENSY_GPIO_PIN_COUNT &&        \
+   ((uint8_t)(pin) < 32u                                                       \
+        ? ((0x33ccffffu >> (uint8_t)(pin)) & 1u) != 0u                         \
+        : ((0x0048fc32u >> ((uint8_t)(pin) - 32u)) & 1u) != 0u))
+
+#if defined(__clang__)
+static inline void teensy_pwm_validate(uint8_t pin) __attribute__((diagnose_if(
+    !TEENSY_PWM_PIN_VALID(pin),
+    "invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54",
+    "error")));
+static inline void teensy_pwm_validate(uint8_t pin) { (void)pin; }
+static inline void teensy_pwm_validate_frequency(float frequency_hz)
+    __attribute__((diagnose_if(frequency_hz <= 0.0f,
+                               "PWM frequency must be greater than zero",
+                               "error")));
+static inline void teensy_pwm_validate_frequency(float frequency_hz) {
+  (void)frequency_hz;
+}
+static inline void teensy_pwm_validate_resolution(uint32_t bits)
+    __attribute__((diagnose_if(bits < 1u || bits > 16u,
+                               "PWM resolution is clamped to the range 1..16",
+                               "warning")));
+static inline void teensy_pwm_validate_resolution(uint32_t bits) { (void)bits; }
+#else
 extern void teensy_pwm_invalid_constant_pin(void) __attribute__((
     error("invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54")));
+extern void teensy_pwm_invalid_frequency(void)
+    __attribute__((error("PWM frequency must be greater than zero")));
+static inline void teensy_pwm_invalid_resolution(uint32_t bits)
+    __attribute__((warning("PWM resolution is clamped to the range 1..16")));
+static inline void teensy_pwm_invalid_resolution(uint32_t bits) { (void)bits; }
+#endif
 
+#if defined(__clang__)
+#define TEENSY_PWM_VALIDATE_CONSTANT_PIN(pin)                                  \
+  teensy_pwm_validate((uint8_t)(pin))
+#define TEENSY_PWM_VALIDATE_FREQUENCY(frequency_hz)                            \
+  teensy_pwm_validate_frequency((frequency_hz))
+#define TEENSY_PWM_VALIDATE_RESOLUTION(bits)                                   \
+  teensy_pwm_validate_resolution((bits))
+#else
 #define TEENSY_PWM_VALIDATE_CONSTANT_PIN(pin)                                  \
   ({                                                                           \
-    if (__builtin_constant_p(pin) &&                                           \
-        !((pin) == (uint8_t)(pin) && (uint8_t)(pin) < TEENSY_GPIO_PIN_COUNT && \
-          ((uint8_t)(pin) < 32u                                                \
-               ? ((0x33ccffffu >> (uint8_t)(pin)) & 1u) != 0u                  \
-               : ((0x0048fc32u >> ((uint8_t)(pin) - 32u)) & 1u) != 0u)))       \
+    if (__builtin_constant_p(pin) && !TEENSY_PWM_PIN_VALID(pin))               \
       teensy_pwm_invalid_constant_pin();                                       \
     (void)0;                                                                   \
   })
+#define TEENSY_PWM_VALIDATE_FREQUENCY(frequency_hz)                            \
+  ({                                                                           \
+    if (__builtin_constant_p(frequency_hz) && (frequency_hz) <= 0.0f)          \
+      teensy_pwm_invalid_frequency();                                          \
+    (void)0;                                                                   \
+  })
+#define TEENSY_PWM_VALIDATE_RESOLUTION(bits)                                   \
+  ({                                                                           \
+    if (__builtin_constant_p(bits) && ((bits) < 1u || (bits) > 16u))           \
+      teensy_pwm_invalid_resolution((bits));                                   \
+    (void)0;                                                                   \
+  })
+#endif
 
 #define pwm_write(pin, value)                                                  \
   ({                                                                           \
@@ -163,10 +206,17 @@ extern void teensy_pwm_invalid_constant_pin(void) __attribute__((
 #define pwm_set_frequency(pin, frequency_hz)                                   \
   ({                                                                           \
     TEENSY_PWM_VALIDATE_CONSTANT_PIN(pin);                                     \
+    TEENSY_PWM_VALIDATE_FREQUENCY(frequency_hz);                               \
     __builtin_choose_expr(                                                     \
         __builtin_constant_p(pin),                                             \
         teensy_pwm_set_frequency_const((uint8_t)(pin), (frequency_hz)),        \
         pwm_set_frequency((uint8_t)(pin), (frequency_hz)));                    \
+  })
+
+#define pwm_set_resolution(bits)                                               \
+  ({                                                                           \
+    TEENSY_PWM_VALIDATE_RESOLUTION(bits);                                      \
+    pwm_set_resolution((bits));                                                \
   })
 #endif
 
