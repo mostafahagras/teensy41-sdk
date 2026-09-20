@@ -86,6 +86,17 @@ if(ARM_SIZE)
         VERBATIM)
 endif()
 
+if(ARM_OBJDUMP)
+    set(TEENSY41_ASM "${CMAKE_CURRENT_BINARY_DIR}/teensy41.s")
+    add_custom_command(TARGET teensy41 POST_BUILD
+        COMMAND sh -c
+            "\"${ARM_OBJDUMP}\" -d \"$<TARGET_FILE:teensy41>\" > \"${TEENSY41_ASM}\""
+        BYPRODUCTS "${TEENSY41_ASM}"
+        VERBATIM)
+else()
+    message(STATUS "arm-none-eabi-objdump not found; disassembly is unavailable")
+endif()
+
 if(ARM_OBJCOPY)
     set(TEENSY41_HEX "${CMAKE_CURRENT_BINARY_DIR}/teensy41.hex")
     set(TEENSY41_BIN "${CMAKE_CURRENT_BINARY_DIR}/teensy41.bin")

@@ -24,12 +24,15 @@ if(ARM_GCC_COMPILER)
         HINTS "${ARM_GCC_BIN_DIR}")
     find_program(ARM_OBJCOPY NAMES "${ARM_GCC_PREFIX}objcopy"
         HINTS "${ARM_GCC_BIN_DIR}")
+    find_program(ARM_OBJDUMP NAMES "${ARM_GCC_PREFIX}objdump"
+        HINTS "${ARM_GCC_BIN_DIR}")
     find_program(ARM_SIZE NAMES "${ARM_GCC_PREFIX}size"
         HINTS "${ARM_GCC_BIN_DIR}")
 else()
     set(ARM_GCC_COMPILER "${ARM_GCC_PREFIX}gcc")
     set(ARM_GXX_COMPILER "${ARM_GCC_PREFIX}g++")
     set(ARM_ASM_COMPILER "${ARM_GCC_PREFIX}gcc")
+    set(ARM_OBJDUMP "${ARM_GCC_PREFIX}objdump")
 endif()
 
 set(CMAKE_C_COMPILER "${ARM_GCC_COMPILER}" CACHE FILEPATH "ARM C compiler" FORCE)

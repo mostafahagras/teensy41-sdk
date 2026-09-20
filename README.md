@@ -8,7 +8,7 @@ does not depend on the Arduino or Teensyduino core.
 - CMake 3.20 or newer
 - Ninja
 - The complete Arm GNU Toolchain for Embedded (`arm-none-eabi-gcc`, newlib,
-  `arm-none-eabi-objcopy`, and `arm-none-eabi-size`)
+  `arm-none-eabi-objcopy`, `arm-none-eabi-objdump`, and `arm-none-eabi-size`)
 - `clangd` for editor language support
 - `teensy_loader_cli` for the optional `flash` target
 
@@ -60,7 +60,10 @@ cmake --fresh --preset teensy41 \
   -DARM_GCC_PREFIX=/path/to/arm-gnu-toolchain/bin/arm-none-eabi-
 ```
 
-The default build produces `build/teensy41.elf` and `build/teensy41.hex`.
+The default build produces `build/teensy41`, `build/teensy41.s`, and
+`build/teensy41.hex`. The assembly dump is refreshed automatically after a
+successful link.
+
 The `bin` target produces a raw binary:
 
 ```sh
