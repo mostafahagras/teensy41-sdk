@@ -117,7 +117,7 @@ if(ARM_OBJCOPY)
 
     if(TEENSY_LOADER_CLI)
         add_custom_target(flash
-            COMMAND "${TEENSY_LOADER_CLI}" --mcu=TEENSY41 -w "${TEENSY41_HEX}"
+            COMMAND "${TEENSY_LOADER_CLI}" --mcu=TEENSY41 -vw "${TEENSY41_HEX}"
             DEPENDS hex
             USES_TERMINAL
             VERBATIM)
