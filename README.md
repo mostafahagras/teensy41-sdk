@@ -48,6 +48,12 @@ Install LLVM to use the project formatting and linting scripts:
 ```
 
 `./scripts/format` formats the project C sources and headers in place.
+
+## Serial monitor
+
+Run `./scripts/monitor` to print USB serial output from the Teensy. It finds
+the `/dev/cu.usbmodem*` device automatically and reconnects after uploads or
+board resets. Stop it with `Ctrl-C`.
 `--check` verifies formatting without changing files. Linting uses the ARM
 compile database, so run `./scripts/configure` first after changing CMake
 configuration.

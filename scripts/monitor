@@ -1,0 +1,93 @@
+#!/usr/bin/env python3
+"""Print Teensy USB serial output and reconnect across board resets."""
+
+from __future__ import annotations
+
+import glob
+import os
+import select
+import sys
+import termios
+import time
+import tty
+
+
+DEVICE_GLOB = "/dev/cu.usbmodem*"
+RECONNECT_DELAY = 0.5
+
+
+def find_device() -> str | None:
+    devices = sorted(glob.glob(DEVICE_GLOB))
+    return devices[0] if devices else None
+
+
+def open_device(path: str) -> int:
+    fd = os.open(path, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+    tty.setraw(fd)
+    # Teensy Loader uses 134 baud as a reboot-to-bootloader command.  Always
+    # select a normal baud rate here so the host cannot reuse that command
+    # after an upload.  USB CDC itself does not use this rate for data.
+    attributes = termios.tcgetattr(fd)
+    attributes[4] = termios.B115200
+    attributes[5] = termios.B115200
+    termios.tcsetattr(fd, termios.TCSANOW, attributes)
+    return fd
+
+
+def monitor() -> None:
+    fd: int | None = None
+    device: str | None = None
+    waiting_message_shown = False
+
+    try:
+        while True:
+            if fd is None:
+                path = find_device()
+                if path is None:
+                    if not waiting_message_shown:
+                        print("waiting for /dev/cu.usbmodem*", file=sys.stderr, flush=True)
+                        waiting_message_shown = True
+                    time.sleep(RECONNECT_DELAY)
+                    continue
+
+                try:
+                    fd = open_device(path)
+                    device = path
+                    waiting_message_shown = False
+                    print(f"connected: {path}", file=sys.stderr, flush=True)
+                except OSError as error:
+                    if not waiting_message_shown:
+                        print(f"waiting for {path}: {error}", file=sys.stderr, flush=True)
+                        waiting_message_shown = True
+                    time.sleep(RECONNECT_DELAY)
+                    continue
+
+            try:
+                readable, _, _ = select.select([fd], [], [], 0.5)
+                if not readable:
+                    continue
+
+                try:
+                    data = os.read(fd, 4096)
+                except BlockingIOError:
+                    # A tty can become readable between select() and read().
+                    # EAGAIN is not a device disconnect.
+                    continue
+                if not data:
+                    raise OSError("serial device disconnected")
+                sys.stdout.buffer.write(data)
+                sys.stdout.buffer.flush()
+            except (OSError, select.error):
+                os.close(fd)
+                fd = None
+                print(f"disconnected: {device}; waiting to reconnect", file=sys.stderr, flush=True)
+                device = None
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+if __name__ == "__main__":
+    monitor()

@@ -9,6 +9,11 @@
  */
 int printf(const char *format, ...);
 
+/** Writes a string followed by a newline through the SDK's printf backend.
+ * @return The number of characters requested, including the newline.
+ */
+int puts(const char *string);
+
 /** va_list variant of printf().
  * @return The number of characters written.
  */

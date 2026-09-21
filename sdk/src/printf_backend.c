@@ -23,3 +23,14 @@ int printf(const char *format, ...) {
   va_end(arguments);
   return result;
 }
+
+int puts(const char *string) {
+  int result = 0;
+
+  while (*string != '\0') {
+    sdk_printf_putchar(*string++, NULL);
+    ++result;
+  }
+  sdk_printf_putchar('\n', NULL);
+  return result + 1;
+}
