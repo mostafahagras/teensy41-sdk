@@ -101,6 +101,8 @@ reset_handler(void) {
   PIT_TCTRL3 = 0;
 
   time_init();
+  SCB_SCR &= ~(SCB_SCR_SLEEPDEEP | SCB_SCR_SLEEPONEXIT);
+  __enable_irq();
 
   (void)main();
   for (;;) {

@@ -58,6 +58,8 @@ void time_delay_ms(uint32_t milliseconds) {
   uint32_t start = time_millis();
 
   while ((uint32_t)(time_millis() - start) < milliseconds) {
-    __asm volatile("wfi");
+    /* Keep the delay independent of any sleep state inherited from the
+     * bootloader or a previous application. */
+    __asm volatile("nop");
   }
 }
