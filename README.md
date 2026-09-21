@@ -85,8 +85,8 @@ cmake --build build --target flash
 The application entry point is `src/main.c`. The platform implementation is
 under `sdk/`, with public headers in `sdk/include/teensy/`.
 
-The SDK currently provides GPIO, GPIO interrupts, PWM, clocks, timing, UART,
-I2C, USB CDC, a WDOG3 (RTWDOG) watchdog, and a compact `printf`
+The SDK currently provides GPIO, GPIO interrupts, PWM, ADC, clocks, timing,
+UART, I2C, USB CDC, a WDOG3 (RTWDOG) watchdog, and a compact `printf`
 implementation. Include `<teensy/watchdog.h>` to start, refresh, inspect, or
 disable the watchdog. `printf` output is sent only to USB CDC after the host
 has enumerated the device.

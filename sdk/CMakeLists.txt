@@ -1,4 +1,5 @@
 add_library(teensy_sdk OBJECT
+    src/adc.c
     src/bootdata.c
     src/cache.c
     src/gpio.c
