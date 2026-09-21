@@ -10,6 +10,7 @@ add_library(teensy_sdk OBJECT
     src/printf.c
     src/printf_backend.c
     src/startup.c
+    src/tempmon.c
     src/time.c
     src/uart.c
     src/usb_api.c
