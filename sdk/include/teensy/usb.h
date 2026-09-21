@@ -7,7 +7,7 @@
 /** Initializes the USB device controller and CDC serial interface. */
 void usb_init(void);
 
-/** Returns nonzero after the host has configured the USB device. */
+/** Returns nonzero when the host has configured and opened the CDC port. */
 int usb_connected(void);
 
 /** Returns the number of bytes waiting in the USB CDC receive buffer. */

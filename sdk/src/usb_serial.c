@@ -337,7 +337,10 @@ int usb_serial_write(const void *buffer, uint32_t size) {
       }
       if (!usb_configuration)
         return sent;
-      __asm volatile("wfi");
+      /* SysTick is not a reliable wake source for WFI on this target.  Keep
+       * this wait active so the transmit timeout can expire when the host is
+       * not consuming USB data. */
+      __asm volatile("nop");
       tx_noautoflush = 1;
     }
     // digitalWriteFast(3, LOW);

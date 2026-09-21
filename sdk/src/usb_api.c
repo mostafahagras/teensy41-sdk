@@ -57,7 +57,9 @@ void usb_init(void) {
   usb_controller_init();
 }
 
-int usb_connected(void) { return usb_configuration != 0; }
+int usb_connected(void) {
+  return usb_configuration != 0 && (usb_cdc_line_rtsdtr & USB_SERIAL_DTR);
+}
 
 int usb_available(void) { return usb_serial_available(); }
 

@@ -6,12 +6,18 @@
 
 static void sdk_printf_putchar(char character, void *argument) {
   (void)argument;
-  if (usb_connected())
-    (void)usb_write_byte((uint8_t)character);
+  (void)usb_write_byte((uint8_t)character);
+}
+
+static void sdk_printf_discard(char character, void *argument) {
+  (void)character;
+  (void)argument;
 }
 
 int vprintf(const char *format, va_list arguments) {
-  return vfctprintf(sdk_printf_putchar, NULL, format, arguments);
+  if (usb_connected())
+    return vfctprintf(sdk_printf_putchar, NULL, format, arguments);
+  return vfctprintf(sdk_printf_discard, NULL, format, arguments);
 }
 
 int printf(const char *format, ...) {
@@ -27,10 +33,17 @@ int printf(const char *format, ...) {
 int puts(const char *string) {
   int result = 0;
 
-  while (*string != '\0') {
-    sdk_printf_putchar(*string++, NULL);
-    ++result;
+  if (usb_connected()) {
+    while (*string != '\0') {
+      (void)usb_write_byte((uint8_t)*string++);
+      ++result;
+    }
+    (void)usb_write_byte('\n');
+  } else {
+    const volatile char *cursor = (const volatile char *)string;
+    while (*cursor++ != '\0')
+      ++result;
   }
-  sdk_printf_putchar('\n', NULL);
+
   return result + 1;
 }
