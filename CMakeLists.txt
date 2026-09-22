@@ -79,6 +79,51 @@ set_property(TARGET teensy41 APPEND PROPERTY LINK_DEPENDS "${TEENSY_LINKER_SCRIP
 find_program(ARM_SIZE arm-none-eabi-size)
 find_program(ARM_OBJCOPY arm-none-eabi-objcopy)
 find_program(TEENSY_LOADER_CLI teensy_loader_cli)
+find_program(CMAKE_MAKE_PROGRAM_EXE NAMES make)
+
+# The vendored CLI adds macOS soft-reboot (no button press needed); it is
+# built from tools/teensy_loader_cli with a custom_target below and preferred
+# over whatever PATH provides.  The binary itself is not tracked in git.
+set(TEENSY_LOADER_CLI_LOCAL
+    "${CMAKE_CURRENT_SOURCE_DIR}/tools/teensy_loader_cli/teensy_loader_cli")
+
+if(CMAKE_HOST_APPLE)
+    # Apple's system "MacOSX.sdk" can ship .tbd files this toolchain cannot
+    # parse (the SDK 27, which lists arm64e.x1-macos).  Pick the newest SDK
+    # whose tbd files cmake can actually read.
+    file(GLOB _sdk_candidates
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX*.sdk"
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX*.sdk")
+    set(_usable_sdks "")
+    foreach(candidate IN LISTS _sdk_candidates)
+        if(EXISTS "${candidate}/usr/lib/libSystem.B.tbd")
+            file(READ "${candidate}/usr/lib/libSystem.B.tbd" _tbd LIMIT 8000)
+            if(NOT _tbd MATCHES "x1-macos")
+                list(APPEND _usable_sdks "${candidate}")
+            endif()
+        endif()
+    endforeach()
+    if(_usable_sdks)
+        list(SORT _usable_sdks)
+        list(REVERSE _usable_sdks)
+        list(GET _usable_sdks 0 TEENSY_LOADER_SDK)
+    endif()
+
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tools/teensy_loader_cli/Makefile")
+        add_custom_command(
+            OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/tools/teensy_loader_cli/teensy_loader_cli"
+            COMMAND make OS=MACOSX "SDK=${TEENSY_LOADER_SDK}"
+            WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/tools/teensy_loader_cli"
+            DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/teensy_loader_cli/teensy_loader_cli.c"
+            COMMENT "Building vendored teensy_loader_cli"
+            VERBATIM)
+        add_custom_target(vendored_loader_cli
+            DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/teensy_loader_cli/teensy_loader_cli")
+        # Prefer the locally built binary; fall back to PATH versions.
+        set(TEENSY_LOADER_CLI "${TEENSY_LOADER_CLI_LOCAL}"
+            CACHE FILEPATH "teensy_loader_cli executable" FORCE)
+    endif()
+endif()
 
 if(ARM_SIZE)
     add_custom_command(TARGET teensy41 POST_BUILD
@@ -117,10 +162,13 @@ if(ARM_OBJCOPY)
 
     if(TEENSY_LOADER_CLI)
         add_custom_target(flash
-            COMMAND "${TEENSY_LOADER_CLI}" --mcu=TEENSY41 -vw "${TEENSY41_HEX}"
+            COMMAND "${TEENSY_LOADER_CLI}" --mcu=TEENSY41 -svw "${TEENSY41_HEX}"
             DEPENDS hex
             USES_TERMINAL
             VERBATIM)
+        if(TARGET vendored_loader_cli)
+            add_dependencies(flash vendored_loader_cli)
+        endif()
     else()
         message(STATUS "teensy_loader_cli not found; the flash target is unavailable")
     endif()
