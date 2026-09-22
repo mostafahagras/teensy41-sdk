@@ -19,6 +19,7 @@ add_library(teensy_sdk OBJECT
     src/usb.c
     src/usb_desc.c
     src/usb_serial.c
+    src/timer.c
     src/watchdog.c)
 
 target_include_directories(teensy_sdk
