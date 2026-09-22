@@ -199,7 +199,6 @@ int nvram_write(uint16_t address, uint8_t value) {
   uint16_t key;
   const volatile uint16_t *start;
   const volatile uint16_t *end;
-  uint16_t *p;
   uint8_t stored;
 
   if (address >= NVRAM_SIZE)
