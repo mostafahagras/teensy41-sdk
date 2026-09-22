@@ -38,7 +38,16 @@ int dma_channel_acquire(void) {
   uint8_t i;
 
   CCM_CCGR5 |= CCM_CCGR5_DMA(CCM_CCGR_ON);
+  /* Global eDMA control, set once, same values as Teensyduino's
+   * DMAChannel: EMLM so every channel parses TCD word 2 without offsets,
+   * EDBG so transfers survive debugger halts, GRP1PRI arbitration. */
+  DMA_CR = DMA_CR_GRP1PRI | DMA_CR_EMLM | DMA_CR_EDBG;
 
+  /* Critical section around the allocator so two contexts can never
+   * claim one channel (as in DMAChannel::begin). */
+  uint32_t primask;
+  __asm volatile("MRS %0, PRIMASK" : "=r"(primask)::"memory");
+  __disable_irq();
   for (i = 0; i < DMA_CHANNEL_COUNT; ++i) {
     if ((dma_used_mask & (1u << i)) != 0u)
       continue;
@@ -49,8 +58,18 @@ int dma_channel_acquire(void) {
     DMA_INT = 1u << i; /* clear a stale completion interrupt */
     dma_tcd(i)->CSR = 0;
     dma_mux_regs[i] = 0; /* channel 0x0 while unconfigured */
+
+    /* Allow mid-competition preemption and priority changes (the DCHPRI
+     * words are byte-reversed per 4-channel group; same trick as the
+     * core's dchpri[(ch & 0x1C) | (3 - (ch & 3))]). */
+    volatile uint8_t *dchpri = &DMA_DCHPRI3;
+    dchpri[(i & 0x1Cu) | (3u - (i & 3u))] |= DMA_DCHPRI_ECP | DMA_DCHPRI_DPA;
+    if (primask == 0u)
+      __enable_irq();
     return (int)i;
   }
+  if (primask == 0u)
+    __enable_irq();
   return DMA_ERROR_NONE_FREE;
 }
 
