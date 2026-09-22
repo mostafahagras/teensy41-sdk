@@ -49,37 +49,69 @@ set(TEENSY_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/sdk/linker/imxrt1062_t41.l
 
 add_subdirectory(sdk)
 
-add_executable(teensy41 src/main.c)
-target_link_libraries(teensy41 PRIVATE teensy_sdk)
+# Compile/link setup shared by the main application target and every
+# example; callers append their own -Wl,-Map when they want one.
+function(teensy_target_options target)
+    cmake_parse_arguments(OPT "WITH_MAP" "MAPFILE" "" ${ARGN})
+    add_executable(${target} ${OPT_UNPARSED_ARGUMENTS})
+    target_link_libraries(${target} PRIVATE teensy_sdk)
 
-target_compile_definitions(teensy41 PRIVATE ${TEENSY_DEFINITIONS})
-target_compile_options(teensy41 PRIVATE
-    ${TEENSY_CPU_FLAGS}
-    ${TEENSY_SYSROOT_INCLUDE_FLAG}
-    ${TEENSY_GCC_INCLUDE_FLAG}
-    -Wall
-    -Wextra
-    -ffunction-sections
-    -fdata-sections
-    -Os)
+    target_compile_definitions(${target} PRIVATE ${TEENSY_DEFINITIONS})
+    target_compile_options(${target} PRIVATE
+        ${TEENSY_CPU_FLAGS}
+        ${TEENSY_SYSROOT_INCLUDE_FLAG}
+        ${TEENSY_GCC_INCLUDE_FLAG}
+        -Wall
+        -Wextra
+        -ffunction-sections
+        -fdata-sections
+        -Os)
 
-target_link_options(teensy41 PRIVATE
-    ${TEENSY_CPU_FLAGS}
-    -nostdlib
-    -nostartfiles
-    -nodefaultlibs
-    "-T${TEENSY_LINKER_SCRIPT}"
-    -Wl,--gc-sections
-    -Wl,--relax
-    "-Wl,-Map,${CMAKE_CURRENT_BINARY_DIR}/teensy41.map")
+    target_link_options(${target} PRIVATE
+        ${TEENSY_CPU_FLAGS}
+        -nostdlib
+        -nostartfiles
+        -nodefaultlibs
+        "-T${TEENSY_LINKER_SCRIPT}"
+        -Wl,--gc-sections
+        -Wl,--relax)
 
-target_link_libraries(teensy41 PRIVATE gcc)
-set_property(TARGET teensy41 APPEND PROPERTY LINK_DEPENDS "${TEENSY_LINKER_SCRIPT}")
+    target_link_libraries(${target} PRIVATE gcc)
+    set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS "${TEENSY_LINKER_SCRIPT}")
+    if(OPT_WITH_MAP AND OPT_MAPFILE)
+        target_link_options(${target} PRIVATE
+            "-Wl,-Map,${CMAKE_CURRENT_BINARY_DIR}/${OPT_MAPFILE}")
+    endif()
+endfunction()
+
+# Per-target HEX/BIN generation (main and examples).
+function(teensy_add_hex_target target)
+    set(hex "${CMAKE_CURRENT_BINARY_DIR}/${target}.hex")
+    set(bin "${CMAKE_CURRENT_BINARY_DIR}/${target}.bin")
+    add_custom_command(OUTPUT "${hex}"
+        COMMAND "${ARM_OBJCOPY}" -O ihex -R .eeprom
+            "$<TARGET_FILE:${target}>" "${hex}"
+        DEPENDS ${target}
+        VERBATIM)
+    add_custom_command(OUTPUT "${bin}"
+        COMMAND "${ARM_OBJCOPY}" -O binary
+            "$<TARGET_FILE:${target}>" "${bin}"
+        DEPENDS ${target}
+        VERBATIM)
+    add_custom_target(${target}-hex DEPENDS "${hex}")
+    add_custom_target(${target}-bin DEPENDS "${bin}")
+
+    if(TARGET vendored_loader_cli)
+        add_custom_target(flash-${target} DEPENDS ${target}-hex vendored_loader_cli)
+    else()
+        add_custom_target(flash-${target} DEPENDS ${target}-hex)
+    endif()
+endfunction()
 
 find_program(ARM_SIZE arm-none-eabi-size)
 find_program(ARM_OBJCOPY arm-none-eabi-objcopy)
+find_program(ARM_OBJDUMP arm-none-eabi-objdump)
 find_program(TEENSY_LOADER_CLI teensy_loader_cli)
-find_program(CMAKE_MAKE_PROGRAM_EXE NAMES make)
 
 # The vendored CLI adds macOS soft-reboot (no button press needed); it is
 # built from tools/teensy_loader_cli with a custom_target below and preferred
@@ -119,11 +151,14 @@ if(CMAKE_HOST_APPLE)
             VERBATIM)
         add_custom_target(vendored_loader_cli
             DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/tools/teensy_loader_cli/teensy_loader_cli")
-        # Prefer the locally built binary; fall back to PATH versions.
         set(TEENSY_LOADER_CLI "${TEENSY_LOADER_CLI_LOCAL}"
             CACHE FILEPATH "teensy_loader_cli executable" FORCE)
     endif()
 endif()
+
+# Main application (src/main.c).
+teensy_target_options(teensy41 WITH_MAP MAPFILE teensy41.map src/main.c)
+set_property(TARGET teensy41 APPEND PROPERTY LINK_DEPENDS "${TEENSY_LINKER_SCRIPT}")
 
 if(ARM_SIZE)
     add_custom_command(TARGET teensy41 POST_BUILD
@@ -143,27 +178,13 @@ else()
 endif()
 
 if(ARM_OBJCOPY)
-    set(TEENSY41_HEX "${CMAKE_CURRENT_BINARY_DIR}/teensy41.hex")
-    set(TEENSY41_BIN "${CMAKE_CURRENT_BINARY_DIR}/teensy41.bin")
-
-    add_custom_command(OUTPUT "${TEENSY41_HEX}"
-        COMMAND "${ARM_OBJCOPY}" -O ihex -R .eeprom
-            "$<TARGET_FILE:teensy41>" "${TEENSY41_HEX}"
-        DEPENDS teensy41
-        VERBATIM)
-    add_custom_command(OUTPUT "${TEENSY41_BIN}"
-        COMMAND "${ARM_OBJCOPY}" -O binary
-            "$<TARGET_FILE:teensy41>" "${TEENSY41_BIN}"
-        DEPENDS teensy41
-        VERBATIM)
-
-    add_custom_target(hex ALL DEPENDS "${TEENSY41_HEX}")
-    add_custom_target(bin DEPENDS "${TEENSY41_BIN}")
+    teensy_add_hex_target(teensy41)
 
     if(TEENSY_LOADER_CLI)
         add_custom_target(flash
-            COMMAND "${TEENSY_LOADER_CLI}" --mcu=TEENSY41 -svw "${TEENSY41_HEX}"
-            DEPENDS hex
+            COMMAND "${TEENSY_LOADER_CLI}" --mcu=TEENSY41 -svw
+                "${CMAKE_CURRENT_BINARY_DIR}/teensy41.hex"
+            DEPENDS teensy41-hex
             USES_TERMINAL
             VERBATIM)
         if(TARGET vendored_loader_cli)
@@ -175,3 +196,6 @@ if(ARM_OBJCOPY)
 else()
     message(STATUS "arm-none-eabi-objcopy not found; HEX/BIN targets are unavailable")
 endif()
+
+# One example per feature; targets: example-<name>, flash-<name>.
+add_subdirectory(examples)
