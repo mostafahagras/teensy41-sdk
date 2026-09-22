@@ -9,6 +9,7 @@ add_library(teensy_sdk OBJECT
     src/pwm.c
     src/printf.c
     src/printf_backend.c
+    src/rtc.c
     src/startup.c
     src/tempmon.c
     src/time.c

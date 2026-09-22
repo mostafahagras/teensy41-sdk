@@ -33,9 +33,9 @@
 #define OCOTP_ANA1_ROOM_COUNT_SHIFT 20
 
 typedef struct {
-  float hot_temp;     /* fused calibration temperature */
-  float hot_count;    /* sensor count at hot_temp */
-  float room_to_hot;  /* room count minus hot count */
+  float hot_temp;    /* fused calibration temperature */
+  float hot_count;   /* sensor count at hot_temp */
+  float room_to_hot; /* room count minus hot count */
 } tempmon_calibration_t;
 
 static tempmon_calibration_t tempmon_calibration;
@@ -104,8 +104,7 @@ static void tempmon_set_low_alarm_raw(uint32_t count) {
   TEMPMON_TEMPSENSE2 = sense2;
 }
 
-__attribute__((noreturn, used)) static void
-tempmon_panic_isr(void) {
+__attribute__((noreturn, used)) static void tempmon_panic_isr(void) {
   /* The panic alarm means the die is past its shutdown temperature; there is
    * nothing safe to do from software, so stop. */
   for (;;) {
@@ -144,7 +143,8 @@ int tempmon_init(void) {
   TEMPMON_TEMPSENSE0_CLR = TEMPMON_POWER_DOWN | TEMPMON_MEASURE;
   TEMPMON_TEMPSENSE1 = TEMPMON_CTRL1_MEASURE_FREQ(TEMPMON_MEASURE_FREQUENCY);
 
-  tempmon_set_high_alarm_raw(tempmon_count_from_c(TEMPMON_DEFAULT_HIGH_ALARM_C));
+  tempmon_set_high_alarm_raw(
+      tempmon_count_from_c(TEMPMON_DEFAULT_HIGH_ALARM_C));
   tempmon_set_panic_alarm_raw(
       tempmon_count_from_c(TEMPMON_DEFAULT_PANIC_ALARM_C));
   tempmon_set_low_alarm_raw(tempmon_count_from_c(TEMPMON_DEFAULT_LOW_ALARM_C));
