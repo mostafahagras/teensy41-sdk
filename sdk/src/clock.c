@@ -70,20 +70,35 @@ uint32_t clock_init(uint32_t frequency) {
   /* Periph stage: switch to the running-and-locked USB PLL as a stable
    * intermediate, exactly the way the original core's PERIPH_CLK2 dance
    * does it. */
+  /* Alternate-source dance, semantics identical to the core's
+   * set_arm_clock: skip when already on PERIPH_CLK2; otherwise pick the
+   * USB PLL (120 MHz intermediate) if it is running, else the 24 MHz
+   * crystal, so the CPU keeps running while the ARM PLL rebuilds. */
   cbcdr = CCM_CBCDR;
   cbcmr = CCM_CBCMR;
-  if ((CCM_ANALOG_PLL_USB1 & CCM_ANALOG_PLL_USB1_LOCK) != 0u) {
+  if ((cbcdr & CCM_CBCDR_PERIPH_CLK_SEL) == 0u) {
+    const uint32_t need1s =
+        CCM_ANALOG_PLL_USB1_ENABLE | CCM_ANALOG_PLL_USB1_POWER |
+        CCM_ANALOG_PLL_USB1_LOCK | CCM_ANALOG_PLL_USB1_EN_USB_CLKS;
+    uint32_t sel;
+    uint32_t div;
+    if ((CCM_ANALOG_PLL_USB1 & need1s) == need1s) {
+      sel = 0u;
+      div = 3u; // 480/4 = 120 MHz, so IPG is ok even at IPG_PODF=0
+    } else {
+      sel = 1u;
+      div = 0u;
+    }
     if ((cbcdr & CCM_CBCDR_PERIPH_CLK2_PODF_MASK) !=
-        CCM_CBCDR_PERIPH_CLK2_PODF(3u)) {
-      // divide PERIPH_CLK2 down to 120 MHz so IPG is ok even at PODF=0
+        CCM_CBCDR_PERIPH_CLK2_PODF(div)) {
       cbcdr &= ~CCM_CBCDR_PERIPH_CLK2_PODF_MASK;
-      cbcdr |= CCM_CBCDR_PERIPH_CLK2_PODF(3u);
+      cbcdr |= CCM_CBCDR_PERIPH_CLK2_PODF(div);
       CCM_CBCDR = cbcdr;
     }
     if ((cbcmr & CCM_CBCMR_PERIPH_CLK2_SEL_MASK) !=
-        CCM_CBCMR_PERIPH_CLK2_SEL(0u)) {
+        CCM_CBCMR_PERIPH_CLK2_SEL(sel)) {
       cbcmr &= ~CCM_CBCMR_PERIPH_CLK2_SEL_MASK;
-      cbcmr |= CCM_CBCMR_PERIPH_CLK2_SEL(0u);
+      cbcmr |= CCM_CBCMR_PERIPH_CLK2_SEL(sel);
       CCM_CBCMR = cbcmr;
       while (CCM_CDHIPR & CCM_CDHIPR_PERIPH2_CLK_SEL_BUSY)
         ; // wait
