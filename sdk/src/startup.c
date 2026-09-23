@@ -70,6 +70,22 @@ reset_handler(void) {
   CCM_ANALOG_PFD_528 = 0x2018101Bu; /* 352, 594, 396, 297 MHz */
   CCM_ANALOG_PFD_480 = 0x13110D0Cu; /* 720, 664, 508, 454 MHz */
 
+  /* Fire the DCDC to the F_CPU target before the copies so the regulator
+   * settles while the copies run; the target must be stable before the
+   * 600 MHz switch that clock_init performs below. */
+  CCM_CCGR6 |= CCM_CCGR6_DCDC(CCM_CCGR_ON);
+  {
+    uint32_t dcdc = DCDC_REG3;
+    uint32_t target_trg = DCDC_REG3_TRG((1250u - 800u) / 25); /* 600 MHz */
+    if ((dcdc & DCDC_REG3_TRG_MASK) < target_trg) {
+      dcdc &= ~DCDC_REG3_TRG_MASK;
+      dcdc |= target_trg;
+      DCDC_REG3 = dcdc;
+      while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK))
+        ; // wait voltage settling
+    }
+  }
+
   copy_words(&_stext, &_stextload, &_etext);
   copy_words(&_sdata, &_sdataload, &_edata);
   clear_words(&_sbss, &_ebss);

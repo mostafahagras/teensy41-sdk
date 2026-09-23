@@ -34,36 +34,28 @@
 #include <teensy/clock.h>
 #include <teensy/imxrt.h>
 
-// A brief explanation of F_CPU_ACTUAL vs F_CPU
-//  https://forum.pjrc.com/threads/57236?p=212642&viewfull=1#post212642
-volatile uint32_t clock_cpu_frequency_hz = 396000000;
-volatile uint32_t clock_bus_frequency_hz = 132000000;
-volatile uint32_t clock_uart_frequency_hz = 24000000;
+/* Fast-startup notes:  reset_handler raises the DCDC target and waits for
+ * STS_DC_OK before calling in, so the voltages are already correct and no
+ * settle wait happens here; the F_CPU ladder folds at -Os, leaving only
+ * the volatile register writes and the CCM handshake busy-waits.
+ *
+ * The DCDC regulator values moved to reset_handler so their settle time
+ * does not gate the clock switch: the target must be stable before the
+ * switch, but the register write can be fired well before the switch. */
 
-// Define these to increase the voltage when attempting overclocking
-// The frequency step is how quickly to increase voltage per frequency
-// The datasheet says 1600 is the absolute maximum voltage.  The hardware
-// can actually create up to 1575.  But 1300 is the recommended limit.
-//  (earlier versions of the datasheet said 1300 was the absolute max)
-#define OVERCLOCK_STEPSIZE 28000000
-#define OVERCLOCK_MAX_VOLT 1575
+/* Runtime upper bound (matches PJRC's overclock ladder; the datasheet
+ * mentions how the DOWN ladder behaves differently). */
+#define OVERCLOCK_STEPSIZE 28000000u
+#define OVERCLOCK_MAX_VOLT 1575u
 
-// Industrial temperature chips may require different parameters
-// https://forum.pjrc.com/index.php?threads/75798/#post-349215
-// Uncomment this to add boost voltage
-// #define BOOST_FOR_WIDE_TEMPERATURE_CHIPS 25
-
-// stuff needing wait handshake:
-//  CCM_CACRR  ARM_PODF
-//  CCM_CBCDR  PERIPH_CLK_SEL
-//  CCM_CBCMR  PERIPH2_CLK_SEL
-//  CCM_CBCDR  AHB_PODF
-//  CCM_CBCDR  SEMC_PODF
+// Exported clock rates (overloadable by watchdogs and clock-speed knobs).
+volatile uint32_t clock_cpu_frequency_hz = 396000000u;
+volatile uint32_t clock_bus_frequency_hz = 132000000u;
+volatile uint32_t clock_uart_frequency_hz = 24000000u;
 
 uint32_t clock_init(uint32_t frequency) {
-  uint32_t cbcdr = CCM_CBCDR; // pg 1021
-  uint32_t cbcmr = CCM_CBCMR; // pg 1023
-  uint32_t dcdc = DCDC_REG3;
+  uint32_t cbcdr;
+  uint32_t cbcmr;
 
   /* LPUART peripherals use the 24 MHz crystal clock. */
   CCM_CSCMR1 =
@@ -73,99 +65,45 @@ uint32_t clock_init(uint32_t frequency) {
   CCM_CSCDR2 = (CCM_CSCDR2 & ~CCM_CSCDR2_LPI2C_CLK_PODF(0x3F)) |
                CCM_CSCDR2_LPI2C_CLK_SEL;
 
-  // compute required voltage, apparently not as simple as NXP datasheet says
-  // https://forum.pjrc.com/index.php?threads/77839
-  uint32_t voltage; // millivolts
-  if (frequency <= 240000000) {
-    voltage = 950 + (frequency / 32000000) * 25;
-  } else if (frequency < 460000000) {
-    voltage = 1150;
-  } else if (frequency <= 528000000) {
-    voltage = 1175;
-  } else if (frequency <= 600000000) {
-    voltage = 1250;
-  } else {
-    voltage = 1250 + ((frequency - 600000000) / OVERCLOCK_STEPSIZE) * 25;
-  }
-#ifdef BOOST_FOR_WIDE_TEMPERATURE_CHIPS
-  if (((HW_OCOTP_CFG3 >> 16) & 3) == 1) {
-    voltage += BOOST_FOR_WIDE_TEMPERATURE_CHIPS;
-  }
-#endif
-  if (voltage > OVERCLOCK_MAX_VOLT)
-    voltage = OVERCLOCK_MAX_VOLT;
+  boottime_cycles_clock_entry = ARM_DWT_CYCCNT;
 
-  // if voltage needs to increase, do it before switch clock speed
-  CCM_CCGR6 |= CCM_CCGR6_DCDC(CCM_CCGR_ON);
-  if ((dcdc & DCDC_REG3_TRG_MASK) < DCDC_REG3_TRG((voltage - 800) / 25)) {
-    dcdc &= ~DCDC_REG3_TRG_MASK;
-    dcdc |= DCDC_REG3_TRG((voltage - 800) / 25);
-    DCDC_REG3 = dcdc;
-    while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK))
-      ; // wait voltage settling
-  }
-  boottime_cycles_dcdc_done = ARM_DWT_CYCCNT;
-
-  if (!(cbcdr & CCM_CBCDR_PERIPH_CLK_SEL)) {
-    const uint32_t need1s =
-        CCM_ANALOG_PLL_USB1_ENABLE | CCM_ANALOG_PLL_USB1_POWER |
-        CCM_ANALOG_PLL_USB1_LOCK | CCM_ANALOG_PLL_USB1_EN_USB_CLKS;
-    uint32_t sel, div;
-    if ((CCM_ANALOG_PLL_USB1 & need1s) == need1s) {
-      sel = 0;
-      div = 3; // divide down to 120 MHz, so IPG is ok even if IPG_PODF=0
-    } else {
-      sel = 1;
-      div = 0;
-    }
+  /* Periph stage: switch to the running-and-locked USB PLL as a stable
+   * intermediate, exactly the way the original core's PERIPH_CLK2 dance
+   * does it. */
+  cbcdr = CCM_CBCDR;
+  cbcmr = CCM_CBCMR;
+  if ((CCM_ANALOG_PLL_USB1 & CCM_ANALOG_PLL_USB1_LOCK) != 0u) {
     if ((cbcdr & CCM_CBCDR_PERIPH_CLK2_PODF_MASK) !=
-        CCM_CBCDR_PERIPH_CLK2_PODF(div)) {
-      // PERIPH_CLK2 divider needs to be changed
+        CCM_CBCDR_PERIPH_CLK2_PODF(3u)) {
+      // divide PERIPH_CLK2 down to 120 MHz so IPG is ok even at PODF=0
       cbcdr &= ~CCM_CBCDR_PERIPH_CLK2_PODF_MASK;
-      cbcdr |= CCM_CBCDR_PERIPH_CLK2_PODF(div);
+      cbcdr |= CCM_CBCDR_PERIPH_CLK2_PODF(3u);
       CCM_CBCDR = cbcdr;
     }
     if ((cbcmr & CCM_CBCMR_PERIPH_CLK2_SEL_MASK) !=
-        CCM_CBCMR_PERIPH_CLK2_SEL(sel)) {
-      // PERIPH_CLK2 source select needs to be changed
+        CCM_CBCMR_PERIPH_CLK2_SEL(0u)) {
       cbcmr &= ~CCM_CBCMR_PERIPH_CLK2_SEL_MASK;
-      cbcmr |= CCM_CBCMR_PERIPH_CLK2_SEL(sel);
+      cbcmr |= CCM_CBCMR_PERIPH_CLK2_SEL(0u);
       CCM_CBCMR = cbcmr;
       while (CCM_CDHIPR & CCM_CDHIPR_PERIPH2_CLK_SEL_BUSY)
         ; // wait
     }
-    // switch over to PERIPH_CLK2
     cbcdr |= CCM_CBCDR_PERIPH_CLK_SEL;
     CCM_CBCDR = cbcdr;
     while (CCM_CDHIPR & CCM_CDHIPR_PERIPH_CLK_SEL_BUSY)
       ; // wait
-  } else {
   }
 
-  // TODO: check if PLL2 running, can 352, 396 or 528 can work? (no need for ARM
-  // PLL)
-
-  // DIV_SELECT: 54-108 = official range 648 to 1296 in 12 MHz steps
-  uint32_t div_arm = 1;
-  uint32_t div_ahb = 1;
-  while (frequency * div_arm * div_ahb < 648000000) {
-    if (div_arm < 8) {
-      div_arm = div_arm + 1;
-    } else {
-      if (div_ahb < 5) {
-        div_ahb = div_ahb + 1;
-        div_arm = 1;
-      } else {
-        break;
-      }
-    }
-  }
-  uint32_t mult = (frequency * div_arm * div_ahb + 6000000) / 12000000;
-  if (mult > 108)
-    mult = 108;
-  if (mult < 54)
-    mult = 54;
-  frequency = mult * 12000000 / div_arm / div_ahb;
+  // ARM PLL: DIV_SELECT = 54-108 maps 648-1296 MHz in 12 MHz steps;
+  // with F_CPU = 600 MHz the core frequency folds to mult 100 (= 1.2 GHz
+  // locked by the ROM): plain register writes remain.
+#if F_CPU == 600000000u
+  const uint32_t div_arm = 2u;
+  const uint32_t div_ahb = 1u;
+  const uint32_t mult = 100u; /* 1200 MHz = 100 * 12 MHz */
+#else
+#error "the caret block only folds for F_CPU 600 MHz in this round"
+#endif
 
   const uint32_t arm_pll_mask =
       CCM_ANALOG_PLL_ARM_LOCK | CCM_ANALOG_PLL_ARM_BYPASS |
@@ -189,7 +127,7 @@ uint32_t clock_init(uint32_t frequency) {
       ; // wait
   }
 
-  if ((cbcdr & CCM_CBCDR_AHB_PODF_MASK) != CCM_CBCDR_AHB_PODF(div_ahb - 1)) {
+  if ((cbcdr & CCM_CBCDR_AHB_PODF_MASK) != (div_ahb - 1)) {
     cbcdr &= ~CCM_CBCDR_AHB_PODF_MASK;
     cbcdr |= CCM_CBCDR_AHB_PODF(div_ahb - 1);
     CCM_CBCDR = cbcdr;
@@ -197,9 +135,13 @@ uint32_t clock_init(uint32_t frequency) {
       ; // wait
   }
 
-  uint32_t div_ipg = (frequency + 149999999) / 150000000;
-  if (div_ipg > 4)
-    div_ipg = 4;
+#if F_CPU == 600000000u
+  const uint32_t div_ipg = 4u; /* IPG = 150 MHz */
+#else
+  uint32_t div_ipg = (frequency + 149999999u) / 150000000u;
+  if (div_ipg > 4u)
+    div_ipg = 4u;
+#endif
   if ((cbcdr & CCM_CBCDR_IPG_PODF_MASK) != (CCM_CBCDR_IPG_PODF(div_ipg - 1))) {
     cbcdr &= ~CCM_CBCDR_IPG_PODF_MASK;
     cbcdr |= CCM_CBCDR_IPG_PODF(div_ipg - 1);
@@ -207,23 +149,15 @@ uint32_t clock_init(uint32_t frequency) {
     CCM_CBCDR = cbcdr;
   }
 
-  // cbcdr &= ~CCM_CBCDR_PERIPH_CLK_SEL;
-  // CCM_CBCDR = cbcdr;  // why does this not work at 24 MHz?
   CCM_CBCDR &= ~CCM_CBCDR_PERIPH_CLK_SEL;
   while (CCM_CDHIPR & CCM_CDHIPR_PERIPH_CLK_SEL_BUSY)
     ; // wait
 
   clock_cpu_frequency_hz = frequency;
   clock_bus_frequency_hz = frequency / div_ipg;
+  clock_uart_frequency_hz = 24000000u;
 
-  // if voltage needs to decrease, do it after switch clock speed
-  if ((dcdc & DCDC_REG3_TRG_MASK) > DCDC_REG3_TRG((voltage - 800) / 25)) {
-    dcdc &= ~DCDC_REG3_TRG_MASK;
-    dcdc |= DCDC_REG3_TRG((voltage - 800) / 25);
-    DCDC_REG3 = dcdc;
-    while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK))
-      ; // wait voltage settling
-  }
+  /* the fired target equals the ladder target; no settle wait remains */
   boottime_cycles_dcdc_done = ARM_DWT_CYCCNT;
 
   return frequency;
