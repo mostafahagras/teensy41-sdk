@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdint.h>
 
 #include <teensy/boottime.h>
@@ -22,17 +23,12 @@ int main(void);
 __attribute__((used, aligned(1024), section(".vectorsram"))) void (
         *volatile _VectorsRam[NVIC_NUM_INTERRUPTS + 16])(void);
 
+/* Copies load words while a source is valid; with a NULL source the Zero
+ * fills the row (used for the BSS region). */
 __attribute__((section(".startup"))) static void
 copy_words(uint32_t *destination, const uint32_t *source, uint32_t *end) {
   while (destination < end) {
-    *destination++ = *source++;
-  }
-}
-
-__attribute__((section(".startup"))) static void
-clear_words(uint32_t *destination, uint32_t *end) {
-  while (destination < end) {
-    *destination++ = 0;
+    *destination++ = source ? *source++ : 0;
   }
 }
 
@@ -88,7 +84,7 @@ reset_handler(void) {
 
   copy_words(&_stext, &_stextload, &_etext);
   copy_words(&_sdata, &_sdataload, &_edata);
-  clear_words(&_sbss, &_ebss);
+  copy_words(&_sbss, NULL, &_ebss);
 
   /*
    * The whole SDK is built with -mfloat-abi=hard and -mfpu=fpv5-d16.
@@ -111,7 +107,6 @@ reset_handler(void) {
   IOMUXC_GPR_GPR28 = 0xFFFFFFFFu;
   IOMUXC_GPR_GPR29 = 0xFFFFFFFFu;
 
-  boottime_cycles_clock_entry = ARM_DWT_CYCCNT;
   cache_init();
   clock_init(F_CPU);
   boottime_cycle_switch = ARM_DWT_CYCCNT;

@@ -33,11 +33,11 @@
 /* Cycle count at the clock switch (0 until clock_init completes). */
 extern volatile uint32_t boottime_cycle_switch;
 
-/* Cycle counts inside clock_init, all in the 24 MHz segment:
- * at function entry, after the DCDC settle wait, after ARM-PLL lock, so
- * main can attribute the pre-switch time to its waiters. */
+/* Cycle counts: at reset_handler's cache_init boundary, and after ARM-PLL
+ * lock inside clock_init.  The DCDC settle itself runs in reset_handler;
+ * its duration is attributed by these two rows (entry->pll minus the
+ * non-waiting config work). */
 extern volatile uint32_t boottime_cycles_clock_entry;
-extern volatile uint32_t boottime_cycles_dcdc_done;
 extern volatile uint32_t boottime_cycles_pll_done;
 
 /* Cycle count at the very end of startup, just before main() runs. */

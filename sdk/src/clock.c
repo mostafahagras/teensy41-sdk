@@ -173,7 +173,5 @@ uint32_t clock_init(uint32_t frequency) {
   clock_uart_frequency_hz = 24000000u;
 
   /* the fired target equals the ladder target; no settle wait remains */
-  boottime_cycles_dcdc_done = ARM_DWT_CYCCNT;
-
   return frequency;
 }

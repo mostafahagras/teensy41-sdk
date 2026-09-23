@@ -6,7 +6,6 @@
 volatile uint32_t boottime_cycle_switch;
 volatile uint32_t boottime_cycles_at_main;
 volatile uint32_t boottime_cycles_clock_entry;
-volatile uint32_t boottime_cycles_dcdc_done;
 volatile uint32_t boottime_cycles_pll_done;
 
 /* The post-switch segment is measured from the point where time_init()
@@ -33,13 +32,13 @@ uint32_t boottime_us_total(void) {
   return before + after;
 }
 
-/* Wait-portion of clock_init in RAW cycles (the pre-switch CPU rate is
- * whatever the ROM left, so converting to microseconds here would be
- * guesswork): dcdc covers the voltage-settle wait, pll the ARM-PLL lock
- * wait. */
+/* clock_init portions in RAW cycles (the pre-switch CPU rate is whatever
+ * the ROM left, so converting to microseconds here would be guesswork):
+ * pll = the ARM-PLL lock wait; the DCDC settle itself lives in
+ * reset_handler and is not attributed here. */
 void boottime_clock_waits_cycles(uint32_t *dcdc, uint32_t *pll) {
   if (dcdc != NULL)
-    *dcdc = boottime_cycles_dcdc_done - boottime_cycles_clock_entry;
+    *dcdc = 0; /* the DCDC wait moved to reset_handler (see startup.c) */
   if (pll != NULL)
-    *pll = boottime_cycles_pll_done - boottime_cycles_dcdc_done;
+    *pll = boottime_cycles_pll_done - boottime_cycles_clock_entry;
 }
