@@ -1,5 +1,6 @@
 #include <stdint.h>
 
+#include <teensy/boottime.h>
 #include <teensy/cache.h>
 #include <teensy/clock.h>
 #include <teensy/imxrt.h>
@@ -56,6 +57,12 @@ __attribute__((section(".startup"))) static void initialize_vectors(void) {
 
 __attribute__((noreturn, noinline, used, section(".startup"))) static void
 reset_handler(void) {
+  /* Start the DWT cycle counter as the first instrumented step; the
+   * boottime module converts its two segments to microseconds. */
+  ARM_DEMCR |= ARM_DEMCR_TRCENA;
+  ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
+  ARM_DWT_CYCCNT = 0;
+
   /* Match the known-good Teensyduino power and PLL PFD setup.  The PFD
    * registers are writable before ITCM/DTCM initialization because this
    * function executes from flash. */
@@ -88,8 +95,10 @@ reset_handler(void) {
   IOMUXC_GPR_GPR28 = 0xFFFFFFFFu;
   IOMUXC_GPR_GPR29 = 0xFFFFFFFFu;
 
+  boottime_cycles_clock_entry = ARM_DWT_CYCCNT;
   cache_init();
   clock_init(F_CPU);
+  boottime_cycle_switch = ARM_DWT_CYCCNT;
 
   /* The boot ROM uses PIT while loading the image.  Do not expose that
    * inherited timer state to the application. */
@@ -104,6 +113,7 @@ reset_handler(void) {
   SCB_SCR &= ~(SCB_SCR_SLEEPDEEP | SCB_SCR_SLEEPONEXIT);
   __enable_irq();
 
+  boottime_cycles_at_main = ARM_DWT_CYCCNT;
   (void)main();
   for (;;) {
     __asm volatile("wfi");

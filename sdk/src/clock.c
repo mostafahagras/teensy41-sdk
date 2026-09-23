@@ -30,6 +30,7 @@
 
 #include <stdint.h>
 
+#include <teensy/boottime.h>
 #include <teensy/clock.h>
 #include <teensy/imxrt.h>
 
@@ -103,6 +104,7 @@ uint32_t clock_init(uint32_t frequency) {
     while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK))
       ; // wait voltage settling
   }
+  boottime_cycles_dcdc_done = ARM_DWT_CYCCNT;
 
   if (!(cbcdr & CCM_CBCDR_PERIPH_CLK_SEL)) {
     const uint32_t need1s =
@@ -179,6 +181,7 @@ uint32_t clock_init(uint32_t frequency) {
     while (!(CCM_ANALOG_PLL_ARM & CCM_ANALOG_PLL_ARM_LOCK))
       ; // wait for lock
   }
+  boottime_cycles_pll_done = ARM_DWT_CYCCNT;
 
   if ((CCM_CACRR & CCM_CACRR_ARM_PODF_MASK) != (div_arm - 1)) {
     CCM_CACRR = CCM_CACRR_ARM_PODF(div_arm - 1);
@@ -221,6 +224,7 @@ uint32_t clock_init(uint32_t frequency) {
     while (!(DCDC_REG0 & DCDC_REG0_STS_DC_OK))
       ; // wait voltage settling
   }
+  boottime_cycles_dcdc_done = ARM_DWT_CYCCNT;
 
   return frequency;
 }
