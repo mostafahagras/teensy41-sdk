@@ -234,8 +234,17 @@ extern void uart_invalid_constant(void)
 #endif
 
 /* The public API dispatches on the UART id.  For constant ids the whole
- * chain folds to the polled device's registers at compile time. */
-
+ * chain folds to the polled device's registers at compile time.
+ *
+ * The const-id validation diagnostic is attached to the public functions
+ * themselves (clang's diagnose_if) so language servers flag misuse at the
+ * call site; with GCC the in-body __builtin_constant_p check + error
+ * attribute covers the same case at compile time. */
+#if defined(__clang__)
+static inline int uart_init(uart_id_t uart, uint32_t baud_rate) __attribute__((
+    diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                "invalid Teensy UART; expected uart1 through uart8", "error")));
+#endif
 /** Initializes a UART with 8 data bits, no parity, and one stop bit.
  * @param uart One of the uart1..uart8 constants.
  * @param baud_rate Baud rate in bits per second (e.g. 115200).
