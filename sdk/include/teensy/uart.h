@@ -224,6 +224,27 @@ extern void uart_invalid_constant(void)
   })
 #endif
 
+/** Attaches a handler called from the RX interrupt for every received
+ * byte, interrupt context (do not block).  Pass NULL to detach.
+ * @param uart One of the uart1..uart8 constants.
+ * @param callback Handler, receives the byte and @p context; NULL disables.
+ * @param context Passed through to @p callback.
+ */
+void uart_attach_rx(uart_id_t uart,
+                    void (*callback)(uint8_t byte, void *context),
+                    void *context);
+
+/** Attaches a handler called when the RX line has been idle for one
+ * frame time (end of a burst), interrupt context (do not block).  Useful
+ * to collect a whole packet after uart_attach_rx(); only enabled while a
+ * handler is set.  Pass NULL to detach.
+ * @param uart One of the uart1..uart8 constants.
+ * @param callback Handler, receives @p context; NULL disables.
+ * @param context Passed through to @p callback.
+ */
+void uart_attach_rx_idle(uart_id_t uart, void (*callback)(void *context),
+                         void *context);
+
 /* The public API dispatches on the UART id.  For constant ids the whole
  * chain folds to the polled device's registers at compile time.
  *

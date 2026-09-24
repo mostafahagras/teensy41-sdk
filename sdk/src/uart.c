@@ -39,6 +39,10 @@ typedef struct {
   volatile uint16_t rx_tail;
   volatile uint16_t tx_head;
   volatile uint16_t tx_tail;
+  void (*rx_callback)(uint8_t byte, void *context);
+  void (*rx_idle_callback)(void *context);
+  void *rx_context;
+  void *rx_idle_context;
   bool initialized;
 } uart_state_t;
 
@@ -327,8 +331,16 @@ static void uart_irq_handler(const uart_device_t *device) {
     if (next != state->rx_tail) {
       state->rx_buffer[state->rx_head] = byte;
       state->rx_head = next;
+      if (state->rx_callback)
+        state->rx_callback(byte, state->rx_context);
     }
     status = port->STAT;
+  }
+
+  if (state->rx_idle_callback && (control & LPUART_CTRL_ILIE) &&
+      (status & LPUART_STAT_IDLE)) {
+    port->STAT = LPUART_STAT_IDLE;
+    state->rx_idle_callback(state->rx_idle_context);
   }
 
   if ((control & LPUART_CTRL_TIE) && (status & LPUART_STAT_TDRE)) {
@@ -344,6 +356,32 @@ static void uart_irq_handler(const uart_device_t *device) {
   if ((control & LPUART_CTRL_TCIE) && (status & LPUART_STAT_TC)) {
     port->CTRL &= ~LPUART_CTRL_TCIE;
   }
+}
+
+void uart_attach_rx(uart_id_t uart,
+                    void (*callback)(uint8_t byte, void *context),
+                    void *user_context) {
+  if (!uart_valid(uart))
+    return;
+  uart_state_t *state = uart_devices[uart]->state;
+  uint32_t primask = uart_critical_enter();
+  state->rx_callback = callback;
+  state->rx_context = user_context;
+  uart_critical_leave(primask);
+}
+
+void uart_attach_rx_idle(uart_id_t uart, void (*callback)(void *context),
+                         void *user_context) {
+  if (!uart_valid(uart))
+    return;
+  const uart_device_t *device = uart_devices[uart];
+  volatile IMXRT_LPUART_t *port = device->config->port;
+  uint32_t primask = uart_critical_enter();
+  device->state->rx_idle_callback = callback;
+  device->state->rx_idle_context = user_context;
+  port->CTRL = callback ? (port->CTRL | LPUART_CTRL_ILIE)
+                        : (port->CTRL & ~LPUART_CTRL_ILIE);
+  uart_critical_leave(primask);
 }
 
 int uart_init_device(uart_device_t *device, uint32_t baud_rate) {
