@@ -16,8 +16,8 @@ typedef struct {
   IMXRT_LPI2C_t *port;
   volatile uint32_t *clock_gate;
   uint32_t clock_gate_mask;
-  teensy_gpio_pin_t sda_gpio;
-  teensy_gpio_pin_t scl_gpio;
+  gpio_pin_t sda_gpio;
+  gpio_pin_t scl_gpio;
   volatile uint32_t *sda_mux;
   volatile uint32_t *sda_pad;
   volatile uint32_t *sda_select;
@@ -133,8 +133,8 @@ int i2c_init(i2c_id_t bus, uint32_t frequency_hz) {
   config = &i2c_configs[bus];
   port = config->port;
 
-  if (teensy_gpio_configure_pin(&config->sda_gpio, GPIO_INPUT) != 0 ||
-      teensy_gpio_configure_pin(&config->scl_gpio, GPIO_INPUT) != 0) {
+  if (gpio_configure_pin(&config->sda_gpio, GPIO_INPUT) != 0 ||
+      gpio_configure_pin(&config->scl_gpio, GPIO_INPUT) != 0) {
     return I2C_ERROR_INVALID;
   }
   *config->clock_gate |= config->clock_gate_mask;

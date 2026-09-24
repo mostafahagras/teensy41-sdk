@@ -17,7 +17,7 @@ typedef enum {
   UART_COUNT = 9
 } uart_id_t;
 
-typedef struct teensy_uart_device teensy_uart_device_t;
+typedef struct uart_device uart_device_t;
 
 #define uart1 ((uart_id_t)UART_ID_1)
 #define uart2 ((uart_id_t)UART_ID_2)
@@ -28,22 +28,22 @@ typedef struct teensy_uart_device teensy_uart_device_t;
 #define uart7 ((uart_id_t)UART_ID_7)
 #define uart8 ((uart_id_t)UART_ID_8)
 
-extern teensy_uart_device_t teensy_uart_device1;
-extern teensy_uart_device_t teensy_uart_device2;
-extern teensy_uart_device_t teensy_uart_device3;
-extern teensy_uart_device_t teensy_uart_device4;
-extern teensy_uart_device_t teensy_uart_device5;
-extern teensy_uart_device_t teensy_uart_device6;
-extern teensy_uart_device_t teensy_uart_device7;
-extern teensy_uart_device_t teensy_uart_device8;
+extern uart_device_t uart_device1;
+extern uart_device_t uart_device2;
+extern uart_device_t uart_device3;
+extern uart_device_t uart_device4;
+extern uart_device_t uart_device5;
+extern uart_device_t uart_device6;
+extern uart_device_t uart_device7;
+extern uart_device_t uart_device8;
 
-int teensy_uart_init_device(teensy_uart_device_t *device, uint32_t baud_rate);
-int teensy_uart_available_device(teensy_uart_device_t *device);
-int teensy_uart_read_device(teensy_uart_device_t *device);
-size_t teensy_uart_write_device(teensy_uart_device_t *device, const void *data,
-                                size_t length);
-int teensy_uart_write_byte_device(teensy_uart_device_t *device, uint8_t byte);
-void teensy_uart_flush_device(teensy_uart_device_t *device);
+int uart_init_device(uart_device_t *device, uint32_t baud_rate);
+int uart_available_device(uart_device_t *device);
+int uart_read_device(uart_device_t *device);
+size_t uart_write_device(uart_device_t *device, const void *data,
+                         size_t length);
+int uart_write_byte_device(uart_device_t *device, uint8_t byte);
+void uart_flush_device(uart_device_t *device);
 
 /** Initializes a UART with 8 data bits, no parity, and one stop bit.
  * @return 0 on success, or -1 if the UART or baud rate is invalid.
@@ -76,151 +76,151 @@ int uart_write_byte(uart_id_t uart, uint8_t byte);
 void uart_flush(uart_id_t uart);
 
 static inline __attribute__((always_inline)) int
-teensy_uart_init_const(uart_id_t uart, uint32_t baud_rate) {
+uart_init_const(uart_id_t uart, uint32_t baud_rate) {
   switch (uart) {
   case UART_ID_1:
-    return teensy_uart_init_device(&teensy_uart_device1, baud_rate);
+    return uart_init_device(&uart_device1, baud_rate);
   case UART_ID_2:
-    return teensy_uart_init_device(&teensy_uart_device2, baud_rate);
+    return uart_init_device(&uart_device2, baud_rate);
   case UART_ID_3:
-    return teensy_uart_init_device(&teensy_uart_device3, baud_rate);
+    return uart_init_device(&uart_device3, baud_rate);
   case UART_ID_4:
-    return teensy_uart_init_device(&teensy_uart_device4, baud_rate);
+    return uart_init_device(&uart_device4, baud_rate);
   case UART_ID_5:
-    return teensy_uart_init_device(&teensy_uart_device5, baud_rate);
+    return uart_init_device(&uart_device5, baud_rate);
   case UART_ID_6:
-    return teensy_uart_init_device(&teensy_uart_device6, baud_rate);
+    return uart_init_device(&uart_device6, baud_rate);
   case UART_ID_7:
-    return teensy_uart_init_device(&teensy_uart_device7, baud_rate);
+    return uart_init_device(&uart_device7, baud_rate);
   case UART_ID_8:
-    return teensy_uart_init_device(&teensy_uart_device8, baud_rate);
+    return uart_init_device(&uart_device8, baud_rate);
   default:
     return -1;
   }
 }
 
 static inline __attribute__((always_inline)) int
-teensy_uart_available_const(uart_id_t uart) {
+uart_available_const(uart_id_t uart) {
   switch (uart) {
   case UART_ID_1:
-    return teensy_uart_available_device(&teensy_uart_device1);
+    return uart_available_device(&uart_device1);
   case UART_ID_2:
-    return teensy_uart_available_device(&teensy_uart_device2);
+    return uart_available_device(&uart_device2);
   case UART_ID_3:
-    return teensy_uart_available_device(&teensy_uart_device3);
+    return uart_available_device(&uart_device3);
   case UART_ID_4:
-    return teensy_uart_available_device(&teensy_uart_device4);
+    return uart_available_device(&uart_device4);
   case UART_ID_5:
-    return teensy_uart_available_device(&teensy_uart_device5);
+    return uart_available_device(&uart_device5);
   case UART_ID_6:
-    return teensy_uart_available_device(&teensy_uart_device6);
+    return uart_available_device(&uart_device6);
   case UART_ID_7:
-    return teensy_uart_available_device(&teensy_uart_device7);
+    return uart_available_device(&uart_device7);
   case UART_ID_8:
-    return teensy_uart_available_device(&teensy_uart_device8);
+    return uart_available_device(&uart_device8);
   default:
     return -1;
   }
 }
 
 static inline __attribute__((always_inline)) int
-teensy_uart_read_const(uart_id_t uart) {
+uart_read_const(uart_id_t uart) {
   switch (uart) {
   case UART_ID_1:
-    return teensy_uart_read_device(&teensy_uart_device1);
+    return uart_read_device(&uart_device1);
   case UART_ID_2:
-    return teensy_uart_read_device(&teensy_uart_device2);
+    return uart_read_device(&uart_device2);
   case UART_ID_3:
-    return teensy_uart_read_device(&teensy_uart_device3);
+    return uart_read_device(&uart_device3);
   case UART_ID_4:
-    return teensy_uart_read_device(&teensy_uart_device4);
+    return uart_read_device(&uart_device4);
   case UART_ID_5:
-    return teensy_uart_read_device(&teensy_uart_device5);
+    return uart_read_device(&uart_device5);
   case UART_ID_6:
-    return teensy_uart_read_device(&teensy_uart_device6);
+    return uart_read_device(&uart_device6);
   case UART_ID_7:
-    return teensy_uart_read_device(&teensy_uart_device7);
+    return uart_read_device(&uart_device7);
   case UART_ID_8:
-    return teensy_uart_read_device(&teensy_uart_device8);
+    return uart_read_device(&uart_device8);
   default:
     return -1;
   }
 }
 
 static inline __attribute__((always_inline)) size_t
-teensy_uart_write_const(uart_id_t uart, const void *data, size_t length) {
+uart_write_const(uart_id_t uart, const void *data, size_t length) {
   switch (uart) {
   case UART_ID_1:
-    return teensy_uart_write_device(&teensy_uart_device1, data, length);
+    return uart_write_device(&uart_device1, data, length);
   case UART_ID_2:
-    return teensy_uart_write_device(&teensy_uart_device2, data, length);
+    return uart_write_device(&uart_device2, data, length);
   case UART_ID_3:
-    return teensy_uart_write_device(&teensy_uart_device3, data, length);
+    return uart_write_device(&uart_device3, data, length);
   case UART_ID_4:
-    return teensy_uart_write_device(&teensy_uart_device4, data, length);
+    return uart_write_device(&uart_device4, data, length);
   case UART_ID_5:
-    return teensy_uart_write_device(&teensy_uart_device5, data, length);
+    return uart_write_device(&uart_device5, data, length);
   case UART_ID_6:
-    return teensy_uart_write_device(&teensy_uart_device6, data, length);
+    return uart_write_device(&uart_device6, data, length);
   case UART_ID_7:
-    return teensy_uart_write_device(&teensy_uart_device7, data, length);
+    return uart_write_device(&uart_device7, data, length);
   case UART_ID_8:
-    return teensy_uart_write_device(&teensy_uart_device8, data, length);
+    return uart_write_device(&uart_device8, data, length);
   default:
     return 0;
   }
 }
 
 static inline __attribute__((always_inline)) int
-teensy_uart_write_byte_const(uart_id_t uart, uint8_t byte) {
+uart_write_byte_const(uart_id_t uart, uint8_t byte) {
   switch (uart) {
   case UART_ID_1:
-    return teensy_uart_write_byte_device(&teensy_uart_device1, byte);
+    return uart_write_byte_device(&uart_device1, byte);
   case UART_ID_2:
-    return teensy_uart_write_byte_device(&teensy_uart_device2, byte);
+    return uart_write_byte_device(&uart_device2, byte);
   case UART_ID_3:
-    return teensy_uart_write_byte_device(&teensy_uart_device3, byte);
+    return uart_write_byte_device(&uart_device3, byte);
   case UART_ID_4:
-    return teensy_uart_write_byte_device(&teensy_uart_device4, byte);
+    return uart_write_byte_device(&uart_device4, byte);
   case UART_ID_5:
-    return teensy_uart_write_byte_device(&teensy_uart_device5, byte);
+    return uart_write_byte_device(&uart_device5, byte);
   case UART_ID_6:
-    return teensy_uart_write_byte_device(&teensy_uart_device6, byte);
+    return uart_write_byte_device(&uart_device6, byte);
   case UART_ID_7:
-    return teensy_uart_write_byte_device(&teensy_uart_device7, byte);
+    return uart_write_byte_device(&uart_device7, byte);
   case UART_ID_8:
-    return teensy_uart_write_byte_device(&teensy_uart_device8, byte);
+    return uart_write_byte_device(&uart_device8, byte);
   default:
     return -1;
   }
 }
 
 static inline __attribute__((always_inline)) void
-teensy_uart_flush_const(uart_id_t uart) {
+uart_flush_const(uart_id_t uart) {
   switch (uart) {
   case UART_ID_1:
-    teensy_uart_flush_device(&teensy_uart_device1);
+    uart_flush_device(&uart_device1);
     break;
   case UART_ID_2:
-    teensy_uart_flush_device(&teensy_uart_device2);
+    uart_flush_device(&uart_device2);
     break;
   case UART_ID_3:
-    teensy_uart_flush_device(&teensy_uart_device3);
+    uart_flush_device(&uart_device3);
     break;
   case UART_ID_4:
-    teensy_uart_flush_device(&teensy_uart_device4);
+    uart_flush_device(&uart_device4);
     break;
   case UART_ID_5:
-    teensy_uart_flush_device(&teensy_uart_device5);
+    uart_flush_device(&uart_device5);
     break;
   case UART_ID_6:
-    teensy_uart_flush_device(&teensy_uart_device6);
+    uart_flush_device(&uart_device6);
     break;
   case UART_ID_7:
-    teensy_uart_flush_device(&teensy_uart_device7);
+    uart_flush_device(&uart_device7);
     break;
   case UART_ID_8:
-    teensy_uart_flush_device(&teensy_uart_device8);
+    uart_flush_device(&uart_device8);
     break;
   default:
     break;
@@ -229,24 +229,23 @@ teensy_uart_flush_const(uart_id_t uart) {
 
 #ifndef TEENSY_UART_IMPLEMENTATION
 #if defined(__clang__)
-static inline void teensy_uart_validate(uart_id_t uart) __attribute__((
+static inline void uart_validate(uart_id_t uart) __attribute__((
     diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
                 "invalid Teensy UART; expected uart1 through uart8", "error")));
-static inline void teensy_uart_validate(uart_id_t uart) { (void)uart; }
+static inline void uart_validate(uart_id_t uart) { (void)uart; }
 #else
-extern void teensy_uart_invalid_constant(void)
+extern void uart_invalid_constant(void)
     __attribute__((error("invalid Teensy UART; expected uart1 through uart8")));
 #endif
 
 #if defined(__clang__)
-#define TEENSY_UART_VALIDATE_CONSTANT(uart)                                    \
-  teensy_uart_validate((uart_id_t)(uart))
+#define TEENSY_UART_VALIDATE_CONSTANT(uart) uart_validate((uart_id_t)(uart))
 #else
 #define TEENSY_UART_VALIDATE_CONSTANT(uart)                                    \
   ({                                                                           \
     if (__builtin_constant_p(uart) &&                                          \
         !((uart) >= UART_ID_1 && (uart) <= UART_ID_8))                         \
-      teensy_uart_invalid_constant();                                          \
+      uart_invalid_constant();                                                 \
     (void)0;                                                                   \
   })
 #endif
@@ -254,17 +253,16 @@ extern void teensy_uart_invalid_constant(void)
 #define uart_init(uart, baud_rate)                                             \
   ({                                                                           \
     TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(                                                     \
-        __builtin_constant_p(uart),                                            \
-        teensy_uart_init_const((uart_id_t)(uart), (baud_rate)),                \
-        uart_init((uart_id_t)(uart), (baud_rate)));                            \
+    __builtin_choose_expr(__builtin_constant_p(uart),                          \
+                          uart_init_const((uart_id_t)(uart), (baud_rate)),     \
+                          uart_init((uart_id_t)(uart), (baud_rate)));          \
   })
 
 #define uart_available(uart)                                                   \
   ({                                                                           \
     TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
     __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          teensy_uart_available_const((uart_id_t)(uart)),      \
+                          uart_available_const((uart_id_t)(uart)),             \
                           uart_available((uart_id_t)(uart)));                  \
   })
 
@@ -272,7 +270,7 @@ extern void teensy_uart_invalid_constant(void)
   ({                                                                           \
     TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
     __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          teensy_uart_read_const((uart_id_t)(uart)),           \
+                          uart_read_const((uart_id_t)(uart)),                  \
                           uart_read((uart_id_t)(uart)));                       \
   })
 
@@ -281,24 +279,23 @@ extern void teensy_uart_invalid_constant(void)
     TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
     __builtin_choose_expr(                                                     \
         __builtin_constant_p(uart),                                            \
-        teensy_uart_write_const((uart_id_t)(uart), (data), (length)),          \
+        uart_write_const((uart_id_t)(uart), (data), (length)),                 \
         uart_write((uart_id_t)(uart), (data), (length)));                      \
   })
 
 #define uart_write_byte(uart, byte)                                            \
   ({                                                                           \
     TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(                                                     \
-        __builtin_constant_p(uart),                                            \
-        teensy_uart_write_byte_const((uart_id_t)(uart), (byte)),               \
-        uart_write_byte((uart_id_t)(uart), (byte)));                           \
+    __builtin_choose_expr(__builtin_constant_p(uart),                          \
+                          uart_write_byte_const((uart_id_t)(uart), (byte)),    \
+                          uart_write_byte((uart_id_t)(uart), (byte)));         \
   })
 
 #define uart_flush(uart)                                                       \
   ({                                                                           \
     TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
     __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          teensy_uart_flush_const((uart_id_t)(uart)),          \
+                          uart_flush_const((uart_id_t)(uart)),                 \
                           uart_flush((uart_id_t)(uart)));                      \
   })
 #endif

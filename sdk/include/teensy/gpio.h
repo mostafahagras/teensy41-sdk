@@ -40,7 +40,7 @@ typedef struct {
   uint32_t mask;
   uint8_t port;
   uint8_t bit;
-} teensy_gpio_pin_t;
+} gpio_pin_t;
 
 #define TEENSY_GPIO_PIN_DESCRIPTOR(port_number, pin_bit, mux_register,         \
                                    pad_register)                               \
@@ -95,39 +95,38 @@ int gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
 int gpio_detach_interrupt(uint8_t pin);
 
 /* Internal descriptor entry point used by compile-time pin wrappers. */
-const teensy_gpio_pin_t *gpio_pin_runtime(uint8_t pin);
-int gpio_attach_interrupt_pin(const teensy_gpio_pin_t *pin,
-                              gpio_interrupt_mode_t mode,
+const gpio_pin_t *gpio_pin_runtime(uint8_t pin);
+int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
                               gpio_interrupt_handler_t handler, void *context);
-int gpio_detach_interrupt_pin(const teensy_gpio_pin_t *pin);
+int gpio_detach_interrupt_pin(const gpio_pin_t *pin);
 
-static inline __attribute__((always_inline)) teensy_gpio_pin_t
-teensy_gpio_pin_const(uint8_t pin) {
+static inline __attribute__((always_inline)) gpio_pin_t
+gpio_pin_const(uint8_t pin) {
 #define TEENSY_GPIO_PIN_CASE(number, port_number, pin_bit, mux_register,       \
                              pad_register)                                     \
   case number:                                                                 \
-    return (teensy_gpio_pin_t){&GPIO##port_number##_DR,                        \
-                               &GPIO##port_number##_GDIR,                      \
-                               &GPIO##port_number##_PSR,                       \
-                               &GPIO##port_number##_DR_SET,                    \
-                               &GPIO##port_number##_DR_CLEAR,                  \
-                               &GPIO##port_number##_DR_TOGGLE,                 \
-                               &(mux_register),                                \
-                               &(pad_register),                                \
-                               (uint32_t)1u << (pin_bit),                      \
-                               (uint8_t)((port_number) - 6u),                  \
-                               (uint8_t)(pin_bit)};
+    return (gpio_pin_t){&GPIO##port_number##_DR,                               \
+                        &GPIO##port_number##_GDIR,                             \
+                        &GPIO##port_number##_PSR,                              \
+                        &GPIO##port_number##_DR_SET,                           \
+                        &GPIO##port_number##_DR_CLEAR,                         \
+                        &GPIO##port_number##_DR_TOGGLE,                        \
+                        &(mux_register),                                       \
+                        &(pad_register),                                       \
+                        (uint32_t)1u << (pin_bit),                             \
+                        (uint8_t)((port_number) - 6u),                         \
+                        (uint8_t)(pin_bit)};
 
   switch (pin) {
     TEENSY_GPIO_PIN_MAP(TEENSY_GPIO_PIN_CASE)
   default:
-    return (teensy_gpio_pin_t){0};
+    return (gpio_pin_t){0};
   }
 #undef TEENSY_GPIO_PIN_CASE
 }
 
 static inline __attribute__((always_inline)) uint32_t
-teensy_gpio_pad_for_mode(gpio_mode_t mode) {
+gpio_pad_for_mode(gpio_mode_t mode) {
   switch (mode) {
   case GPIO_INPUT_PULLUP:
     return IOMUXC_PAD_DSE(7) | IOMUXC_PAD_PKE | IOMUXC_PAD_PUE |
@@ -146,12 +145,12 @@ teensy_gpio_pad_for_mode(gpio_mode_t mode) {
 }
 
 static inline __attribute__((always_inline)) int
-teensy_gpio_configure_pin(const teensy_gpio_pin_t *pin, gpio_mode_t mode) {
+gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
   uint32_t pad;
 
   if (mode > GPIO_OUTPUT_OPEN_DRAIN)
     return -1;
-  pad = teensy_gpio_pad_for_mode(mode);
+  pad = gpio_pad_for_mode(mode);
   if (mode == GPIO_OUTPUT || mode == GPIO_OUTPUT_OPEN_DRAIN)
     *pin->direction |= pin->mask;
   else
@@ -162,14 +161,14 @@ teensy_gpio_configure_pin(const teensy_gpio_pin_t *pin, gpio_mode_t mode) {
 }
 
 static inline __attribute__((always_inline)) int
-teensy_gpio_configure_const(uint8_t pin, gpio_mode_t mode) {
-  teensy_gpio_pin_t descriptor = teensy_gpio_pin_const(pin);
-  return teensy_gpio_configure_pin(&descriptor, mode);
+gpio_configure_const(uint8_t pin, gpio_mode_t mode) {
+  gpio_pin_t descriptor = gpio_pin_const(pin);
+  return gpio_configure_pin(&descriptor, mode);
 }
 
-static inline __attribute__((always_inline)) int
-teensy_gpio_write_const(uint8_t pin, bool high) {
-  teensy_gpio_pin_t descriptor = teensy_gpio_pin_const(pin);
+static inline __attribute__((always_inline)) int gpio_write_const(uint8_t pin,
+                                                                  bool high) {
+  gpio_pin_t descriptor = gpio_pin_const(pin);
   if (high)
     *descriptor.set = descriptor.mask;
   else
@@ -177,9 +176,9 @@ teensy_gpio_write_const(uint8_t pin, bool high) {
   return 0;
 }
 
-static inline __attribute__((always_inline)) int
-teensy_gpio_read_const(uint8_t pin, bool *high) {
-  teensy_gpio_pin_t descriptor = teensy_gpio_pin_const(pin);
+static inline __attribute__((always_inline)) int gpio_read_const(uint8_t pin,
+                                                                 bool *high) {
+  gpio_pin_t descriptor = gpio_pin_const(pin);
   if (high == NULL)
     return -1;
   *high = (*descriptor.input & descriptor.mask) != 0;
@@ -187,46 +186,44 @@ teensy_gpio_read_const(uint8_t pin, bool *high) {
 }
 
 static inline __attribute__((always_inline)) int
-teensy_gpio_toggle_const(uint8_t pin) {
-  teensy_gpio_pin_t descriptor = teensy_gpio_pin_const(pin);
+gpio_toggle_const(uint8_t pin) {
+  gpio_pin_t descriptor = gpio_pin_const(pin);
   *descriptor.toggle = descriptor.mask;
   return 0;
 }
 
 static inline __attribute__((always_inline)) int
-teensy_gpio_attach_interrupt_const(uint8_t pin, gpio_interrupt_mode_t mode,
-                                   gpio_interrupt_handler_t handler,
-                                   void *context) {
-  teensy_gpio_pin_t descriptor = teensy_gpio_pin_const(pin);
+gpio_attach_interrupt_const(uint8_t pin, gpio_interrupt_mode_t mode,
+                            gpio_interrupt_handler_t handler, void *context) {
+  gpio_pin_t descriptor = gpio_pin_const(pin);
   return gpio_attach_interrupt_pin(&descriptor, mode, handler, context);
 }
 
 static inline __attribute__((always_inline)) int
-teensy_gpio_detach_interrupt_const(uint8_t pin) {
-  teensy_gpio_pin_t descriptor = teensy_gpio_pin_const(pin);
+gpio_detach_interrupt_const(uint8_t pin) {
+  gpio_pin_t descriptor = gpio_pin_const(pin);
   return gpio_detach_interrupt_pin(&descriptor);
 }
 
 #ifndef TEENSY_GPIO_IMPLEMENTATION
 #if defined(__clang__)
-static inline void teensy_gpio_validate(uint8_t pin) __attribute__((diagnose_if(
+static inline void gpio_validate(uint8_t pin) __attribute__((diagnose_if(
     pin >= TEENSY_GPIO_PIN_COUNT,
     "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
-static inline void teensy_gpio_validate(uint8_t pin) { (void)pin; }
+static inline void gpio_validate(uint8_t pin) { (void)pin; }
 #else
-extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
+extern void gpio_invalid_constant_pin(void) __attribute__((
     error("invalid Teensy GPIO pin; expected a value from 0 to 54")));
 #endif
 
 #if defined(__clang__)
-#define TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin)                                 \
-  teensy_gpio_validate((uint8_t)(pin))
+#define TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin) gpio_validate((uint8_t)(pin))
 #else
 #define TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin)                                 \
   ({                                                                           \
     if (__builtin_constant_p(pin) &&                                           \
         !((pin) == (uint8_t)(pin) && (uint8_t)(pin) < TEENSY_GPIO_PIN_COUNT))  \
-      teensy_gpio_invalid_constant_pin();                                      \
+      gpio_invalid_constant_pin();                                             \
     (void)0;                                                                   \
   })
 #endif
@@ -235,7 +232,7 @@ extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
   ({                                                                           \
     TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);                                    \
     __builtin_choose_expr(__builtin_constant_p(pin),                           \
-                          teensy_gpio_configure_const((uint8_t)(pin), (mode)), \
+                          gpio_configure_const((uint8_t)(pin), (mode)),        \
                           gpio_configure((uint8_t)(pin), (mode)));             \
   })
 
@@ -243,7 +240,7 @@ extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
   ({                                                                           \
     TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);                                    \
     __builtin_choose_expr(__builtin_constant_p(pin),                           \
-                          teensy_gpio_write_const((uint8_t)(pin), (high)),     \
+                          gpio_write_const((uint8_t)(pin), (high)),            \
                           gpio_write((uint8_t)(pin), (high)));                 \
   })
 
@@ -251,7 +248,7 @@ extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
   ({                                                                           \
     TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);                                    \
     __builtin_choose_expr(__builtin_constant_p(pin),                           \
-                          teensy_gpio_read_const((uint8_t)(pin), (high)),      \
+                          gpio_read_const((uint8_t)(pin), (high)),             \
                           gpio_read((uint8_t)(pin), (high)));                  \
   })
 
@@ -259,7 +256,7 @@ extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
   ({                                                                           \
     TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);                                    \
     __builtin_choose_expr(__builtin_constant_p(pin),                           \
-                          teensy_gpio_toggle_const((uint8_t)(pin)),            \
+                          gpio_toggle_const((uint8_t)(pin)),                   \
                           gpio_toggle((uint8_t)(pin)));                        \
   })
 
@@ -268,8 +265,8 @@ extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
     TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);                                    \
     __builtin_choose_expr(                                                     \
         __builtin_constant_p(pin),                                             \
-        teensy_gpio_attach_interrupt_const((uint8_t)(pin), (mode), (handler),  \
-                                           (context)),                         \
+        gpio_attach_interrupt_const((uint8_t)(pin), (mode), (handler),         \
+                                    (context)),                                \
         gpio_attach_interrupt((uint8_t)(pin), (mode), (handler), (context)));  \
   })
 
@@ -277,7 +274,7 @@ extern void teensy_gpio_invalid_constant_pin(void) __attribute__((
   ({                                                                           \
     TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);                                    \
     __builtin_choose_expr(__builtin_constant_p(pin),                           \
-                          teensy_gpio_detach_interrupt_const((uint8_t)(pin)),  \
+                          gpio_detach_interrupt_const((uint8_t)(pin)),         \
                           gpio_detach_interrupt((uint8_t)(pin)));              \
   })
 #endif

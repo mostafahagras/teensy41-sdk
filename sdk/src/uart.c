@@ -18,8 +18,8 @@ typedef struct {
   uint32_t clock_gate_mask;
   enum IRQ_NUMBER_t irq;
   void (*irq_handler)(void);
-  teensy_gpio_pin_t rx_gpio;
-  teensy_gpio_pin_t tx_gpio;
+  gpio_pin_t rx_gpio;
+  gpio_pin_t tx_gpio;
   volatile uint32_t *rx_mux;
   volatile uint32_t *rx_pad;
   volatile uint32_t *rx_select;
@@ -42,7 +42,7 @@ typedef struct {
   bool initialized;
 } uart_state_t;
 
-struct teensy_uart_device {
+struct uart_device {
   const uart_config_t *config;
   uart_state_t *state;
 };
@@ -56,7 +56,7 @@ static uart_state_t uart_state6;
 static uart_state_t uart_state7;
 static uart_state_t uart_state8;
 
-static void uart_irq_handler(const teensy_uart_device_t *device);
+static void uart_irq_handler(const uart_device_t *device);
 static void uart_irq_handler1(void);
 static void uart_irq_handler2(void);
 static void uart_irq_handler3(void);
@@ -227,29 +227,29 @@ static const uart_config_t uart_config8 = {
     2,
     1};
 
-teensy_uart_device_t teensy_uart_device1 = {&uart_config1, &uart_state1};
-teensy_uart_device_t teensy_uart_device2 = {&uart_config2, &uart_state2};
-teensy_uart_device_t teensy_uart_device3 = {&uart_config3, &uart_state3};
-teensy_uart_device_t teensy_uart_device4 = {&uart_config4, &uart_state4};
-teensy_uart_device_t teensy_uart_device5 = {&uart_config5, &uart_state5};
-teensy_uart_device_t teensy_uart_device6 = {&uart_config6, &uart_state6};
-teensy_uart_device_t teensy_uart_device7 = {&uart_config7, &uart_state7};
-teensy_uart_device_t teensy_uart_device8 = {&uart_config8, &uart_state8};
+uart_device_t uart_device1 = {&uart_config1, &uart_state1};
+uart_device_t uart_device2 = {&uart_config2, &uart_state2};
+uart_device_t uart_device3 = {&uart_config3, &uart_state3};
+uart_device_t uart_device4 = {&uart_config4, &uart_state4};
+uart_device_t uart_device5 = {&uart_config5, &uart_state5};
+uart_device_t uart_device6 = {&uart_config6, &uart_state6};
+uart_device_t uart_device7 = {&uart_config7, &uart_state7};
+uart_device_t uart_device8 = {&uart_config8, &uart_state8};
 
-static teensy_uart_device_t *const uart_devices[UART_COUNT] = {
-    [UART_ID_1] = &teensy_uart_device1, [UART_ID_2] = &teensy_uart_device2,
-    [UART_ID_3] = &teensy_uart_device3, [UART_ID_4] = &teensy_uart_device4,
-    [UART_ID_5] = &teensy_uart_device5, [UART_ID_6] = &teensy_uart_device6,
-    [UART_ID_7] = &teensy_uart_device7, [UART_ID_8] = &teensy_uart_device8};
+static uart_device_t *const uart_devices[UART_COUNT] = {
+    [UART_ID_1] = &uart_device1, [UART_ID_2] = &uart_device2,
+    [UART_ID_3] = &uart_device3, [UART_ID_4] = &uart_device4,
+    [UART_ID_5] = &uart_device5, [UART_ID_6] = &uart_device6,
+    [UART_ID_7] = &uart_device7, [UART_ID_8] = &uart_device8};
 
-static void uart_irq_handler1(void) { uart_irq_handler(&teensy_uart_device1); }
-static void uart_irq_handler2(void) { uart_irq_handler(&teensy_uart_device2); }
-static void uart_irq_handler3(void) { uart_irq_handler(&teensy_uart_device3); }
-static void uart_irq_handler4(void) { uart_irq_handler(&teensy_uart_device4); }
-static void uart_irq_handler5(void) { uart_irq_handler(&teensy_uart_device5); }
-static void uart_irq_handler6(void) { uart_irq_handler(&teensy_uart_device6); }
-static void uart_irq_handler7(void) { uart_irq_handler(&teensy_uart_device7); }
-static void uart_irq_handler8(void) { uart_irq_handler(&teensy_uart_device8); }
+static void uart_irq_handler1(void) { uart_irq_handler(&uart_device1); }
+static void uart_irq_handler2(void) { uart_irq_handler(&uart_device2); }
+static void uart_irq_handler3(void) { uart_irq_handler(&uart_device3); }
+static void uart_irq_handler4(void) { uart_irq_handler(&uart_device4); }
+static void uart_irq_handler5(void) { uart_irq_handler(&uart_device5); }
+static void uart_irq_handler6(void) { uart_irq_handler(&uart_device6); }
+static void uart_irq_handler7(void) { uart_irq_handler(&uart_device7); }
+static void uart_irq_handler8(void) { uart_irq_handler(&uart_device8); }
 
 static bool uart_valid(uart_id_t uart) {
   return uart >= UART_ID_1 && uart <= UART_ID_8;
@@ -307,7 +307,7 @@ static bool uart_tx_empty(const uart_state_t *state) {
   return state->tx_head == state->tx_tail;
 }
 
-static void uart_irq_handler(const teensy_uart_device_t *device) {
+static void uart_irq_handler(const uart_device_t *device) {
   const uart_config_t *config = device->config;
   uart_state_t *state = device->state;
   IMXRT_LPUART_t *port = config->port;
@@ -353,8 +353,8 @@ static int uart_init_instance(const uart_config_t *config, uart_state_t *state,
 
   port = config->port;
 
-  if (teensy_gpio_configure_pin(&config->rx_gpio, GPIO_INPUT) != 0 ||
-      teensy_gpio_configure_pin(&config->tx_gpio, GPIO_OUTPUT) != 0) {
+  if (gpio_configure_pin(&config->rx_gpio, GPIO_INPUT) != 0 ||
+      gpio_configure_pin(&config->tx_gpio, GPIO_OUTPUT) != 0) {
     return -1;
   }
 
@@ -397,14 +397,14 @@ static int uart_init_instance(const uart_config_t *config, uart_state_t *state,
   return 0;
 }
 
-int teensy_uart_init_device(teensy_uart_device_t *device, uint32_t baud_rate) {
+int uart_init_device(uart_device_t *device, uint32_t baud_rate) {
   return uart_init_instance(device->config, device->state, baud_rate);
 }
 
 int uart_init(uart_id_t uart, uint32_t baud_rate) {
   if (!uart_valid(uart))
     return -1;
-  return teensy_uart_init_device(uart_devices[uart], baud_rate);
+  return uart_init_device(uart_devices[uart], baud_rate);
 }
 
 static int uart_available_instance(uart_state_t *state) {
@@ -422,14 +422,14 @@ static int uart_available_instance(uart_state_t *state) {
                       : (int)(UART_RX_CAPACITY + head - tail);
 }
 
-int teensy_uart_available_device(teensy_uart_device_t *device) {
+int uart_available_device(uart_device_t *device) {
   return uart_available_instance(device->state);
 }
 
 int uart_available(uart_id_t uart) {
   if (!uart_valid(uart))
     return -1;
-  return teensy_uart_available_device(uart_devices[uart]);
+  return uart_available_device(uart_devices[uart]);
 }
 
 static int uart_read_instance(uart_state_t *state) {
@@ -451,14 +451,14 @@ static int uart_read_instance(uart_state_t *state) {
   return byte;
 }
 
-int teensy_uart_read_device(teensy_uart_device_t *device) {
+int uart_read_device(uart_device_t *device) {
   return uart_read_instance(device->state);
 }
 
 int uart_read(uart_id_t uart) {
   if (!uart_valid(uart))
     return -1;
-  return teensy_uart_read_device(uart_devices[uart]);
+  return uart_read_device(uart_devices[uart]);
 }
 
 static size_t uart_write_instance(const uart_config_t *config,
@@ -486,25 +486,25 @@ static size_t uart_write_instance(const uart_config_t *config,
   return written;
 }
 
-size_t teensy_uart_write_device(teensy_uart_device_t *device, const void *data,
-                                size_t length) {
+size_t uart_write_device(uart_device_t *device, const void *data,
+                         size_t length) {
   return uart_write_instance(device->config, device->state, data, length);
 }
 
 size_t uart_write(uart_id_t uart, const void *data, size_t length) {
   if (!uart_valid(uart))
     return 0;
-  return teensy_uart_write_device(uart_devices[uart], data, length);
+  return uart_write_device(uart_devices[uart], data, length);
 }
 
-int teensy_uart_write_byte_device(teensy_uart_device_t *device, uint8_t byte) {
-  return teensy_uart_write_device(device, &byte, 1) == 1 ? 0 : -1;
+int uart_write_byte_device(uart_device_t *device, uint8_t byte) {
+  return uart_write_device(device, &byte, 1) == 1 ? 0 : -1;
 }
 
 int uart_write_byte(uart_id_t uart, uint8_t byte) {
   if (!uart_valid(uart))
     return -1;
-  return teensy_uart_write_byte_device(uart_devices[uart], byte);
+  return uart_write_byte_device(uart_devices[uart], byte);
 }
 
 static void uart_flush_instance(const uart_config_t *config,
@@ -517,12 +517,12 @@ static void uart_flush_instance(const uart_config_t *config,
     __asm volatile("wfi");
 }
 
-void teensy_uart_flush_device(teensy_uart_device_t *device) {
+void uart_flush_device(uart_device_t *device) {
   uart_flush_instance(device->config, device->state);
 }
 
 void uart_flush(uart_id_t uart) {
   if (!uart_valid(uart))
     return;
-  teensy_uart_flush_device(uart_devices[uart]);
+  uart_flush_device(uart_devices[uart]);
 }

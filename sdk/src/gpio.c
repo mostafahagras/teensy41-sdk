@@ -13,7 +13,7 @@
                        pad_register)                                           \
   GPIO_PIN(port_number, pin_bit, mux_register, pad_register),
 
-static const teensy_gpio_pin_t gpio_pins[TEENSY_GPIO_PIN_COUNT] = {
+static const gpio_pin_t gpio_pins[TEENSY_GPIO_PIN_COUNT] = {
     TEENSY_GPIO_PIN_MAP(GPIO_PIN_ENTRY)};
 
 #undef GPIO_PIN_ENTRY
@@ -37,36 +37,18 @@ static void *gpio_handler_contexts[4][32];
 
 void gpio_irq_handler(void);
 
-static const teensy_gpio_pin_t *gpio_pin(uint8_t pin) {
+static const gpio_pin_t *gpio_pin(uint8_t pin) {
   return pin < (uint8_t)(sizeof(gpio_pins) / sizeof(gpio_pins[0]))
              ? &gpio_pins[pin]
              : NULL;
 }
 
-const teensy_gpio_pin_t *gpio_pin_runtime(uint8_t pin) { return gpio_pin(pin); }
-
-static uint32_t gpio_pad_for_mode(gpio_mode_t mode) {
-  switch (mode) {
-  case GPIO_INPUT_PULLUP:
-    return IOMUXC_PAD_DSE(7) | IOMUXC_PAD_PKE | IOMUXC_PAD_PUE |
-           IOMUXC_PAD_PUS(3) | IOMUXC_PAD_HYS;
-  case GPIO_INPUT_PULLDOWN:
-    return IOMUXC_PAD_DSE(7) | IOMUXC_PAD_PKE | IOMUXC_PAD_PUE |
-           IOMUXC_PAD_PUS(0) | IOMUXC_PAD_HYS;
-  case GPIO_OUTPUT_OPEN_DRAIN:
-    return IOMUXC_PAD_DSE(7) | IOMUXC_PAD_ODE;
-  case GPIO_INPUT:
-  case GPIO_OUTPUT:
-    return IOMUXC_PAD_DSE(7);
-  default:
-    return 0;
-  }
-}
+const gpio_pin_t *gpio_pin_runtime(uint8_t pin) { return gpio_pin(pin); }
 
 void gpio_init(void) { attachInterruptVector(IRQ_GPIO6789, gpio_irq_handler); }
 
 int gpio_configure(uint8_t pin_number, gpio_mode_t mode) {
-  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  const gpio_pin_t *pin = gpio_pin(pin_number);
   uint32_t pad;
 
   if (pin == NULL || mode > GPIO_OUTPUT_OPEN_DRAIN)
@@ -84,7 +66,7 @@ int gpio_configure(uint8_t pin_number, gpio_mode_t mode) {
 }
 
 int gpio_write(uint8_t pin_number, bool high) {
-  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  const gpio_pin_t *pin = gpio_pin(pin_number);
 
   if (pin == NULL)
     return -1;
@@ -97,7 +79,7 @@ int gpio_write(uint8_t pin_number, bool high) {
 }
 
 int gpio_read(uint8_t pin_number, bool *high) {
-  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  const gpio_pin_t *pin = gpio_pin(pin_number);
 
   if (pin == NULL || high == NULL)
     return -1;
@@ -106,7 +88,7 @@ int gpio_read(uint8_t pin_number, bool *high) {
 }
 
 int gpio_toggle(uint8_t pin_number) {
-  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  const gpio_pin_t *pin = gpio_pin(pin_number);
 
   if (pin == NULL)
     return -1;
@@ -136,8 +118,7 @@ __attribute__((section(".fastrun"))) void gpio_irq_handler(void) {
   __asm volatile("dsb" ::: "memory");
 }
 
-int gpio_attach_interrupt_pin(const teensy_gpio_pin_t *pin,
-                              gpio_interrupt_mode_t mode,
+int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
                               gpio_interrupt_handler_t handler, void *context) {
   const gpio_interrupt_port_t *registers;
   uint32_t icr;
@@ -146,7 +127,7 @@ int gpio_attach_interrupt_pin(const teensy_gpio_pin_t *pin,
   if (pin == NULL || handler == NULL || mode > GPIO_INTERRUPT_HIGH) {
     return -1;
   }
-  if (teensy_gpio_configure_pin(pin, GPIO_INPUT) != 0)
+  if (gpio_configure_pin(pin, GPIO_INPUT) != 0)
     return -1;
 
   registers = &gpio_interrupt_ports[pin->port];
@@ -204,11 +185,11 @@ enable_interrupt:
 
 int gpio_attach_interrupt(uint8_t pin_number, gpio_interrupt_mode_t mode,
                           gpio_interrupt_handler_t handler, void *context) {
-  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  const gpio_pin_t *pin = gpio_pin(pin_number);
   return gpio_attach_interrupt_pin(pin, mode, handler, context);
 }
 
-int gpio_detach_interrupt_pin(const teensy_gpio_pin_t *pin) {
+int gpio_detach_interrupt_pin(const gpio_pin_t *pin) {
   const gpio_interrupt_port_t *registers;
 
   if (pin == NULL)
@@ -223,6 +204,6 @@ int gpio_detach_interrupt_pin(const teensy_gpio_pin_t *pin) {
 }
 
 int gpio_detach_interrupt(uint8_t pin_number) {
-  const teensy_gpio_pin_t *pin = gpio_pin(pin_number);
+  const gpio_pin_t *pin = gpio_pin(pin_number);
   return gpio_detach_interrupt_pin(pin);
 }

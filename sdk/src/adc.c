@@ -67,7 +67,7 @@ static int adc_calibrate(IMXRT_ADCS_t *adc) {
   return 0;
 }
 
-static void adc_configure_pin(const teensy_gpio_pin_t *gpio) {
+static void adc_configure_pin(const gpio_pin_t *gpio) {
   /* ALT0 selects the ADC function; remove digital keeper/bias settings. */
   *gpio->mux = 0;
   *gpio->pad &= ~(IOMUXC_PAD_PKE | IOMUXC_PAD_PUE | IOMUXC_PAD_ODE);
@@ -108,8 +108,8 @@ int adc_set_averaging(uint32_t samples) {
   return 0;
 }
 
-int teensy_adc_read_channel(IMXRT_ADCS_t *adc, uint8_t channel,
-                            const teensy_gpio_pin_t *gpio) {
+int adc_read_channel(IMXRT_ADCS_t *adc, uint8_t channel,
+                     const gpio_pin_t *gpio) {
   uint32_t wait = ADC_WAIT_LIMIT;
 
   if (!adc_initialized || adc == NULL || gpio == NULL || channel > 15u)
@@ -125,7 +125,7 @@ int teensy_adc_read_channel(IMXRT_ADCS_t *adc, uint8_t channel,
 
 int adc_read(uint8_t pin) {
   const adc_pin_info_t *info;
-  const teensy_gpio_pin_t *gpio;
+  const gpio_pin_t *gpio;
 
   if (pin >= TEENSY_GPIO_PIN_COUNT || !adc_initialized)
     return -1;
@@ -133,6 +133,6 @@ int adc_read(uint8_t pin) {
   if (info->instance == 0)
     return -1;
   gpio = gpio_pin_runtime(pin);
-  return teensy_adc_read_channel(
-      info->instance == 1 ? &IMXRT_ADC1 : &IMXRT_ADC2, info->channel, gpio);
+  return adc_read_channel(info->instance == 1 ? &IMXRT_ADC1 : &IMXRT_ADC2,
+                          info->channel, gpio);
 }

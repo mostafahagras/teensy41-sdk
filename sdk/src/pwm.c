@@ -43,7 +43,7 @@ static uint8_t pwm_resolution_bits = 8;
 #define PWM_PIN_ENTRY(number, type, module, channel, muxval)                   \
   [number] = {type, module, channel, muxval},
 
-const teensy_pwm_pin_info_t pwm_pin_info[TEENSY_GPIO_PIN_COUNT] = {
+const pwm_pin_info_t pwm_pin_info[TEENSY_GPIO_PIN_COUNT] = {
     TEENSY_PWM_PIN_MAP(PWM_PIN_ENTRY)};
 
 #undef PWM_PIN_ENTRY
@@ -173,31 +173,30 @@ void quadtimerFrequency(IMXRT_TMR_t *p, unsigned int submodule,
                           TMR_CTRL_LENGTH | TMR_CTRL_OUTMODE(6);
 }
 
-int teensy_pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule,
-                          uint8_t channel, uint8_t muxval,
-                          const teensy_gpio_pin_t *gpio, uint32_t val) {
+int pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+                   uint8_t muxval, const gpio_pin_t *gpio, uint32_t val) {
   if (p == NULL || gpio == NULL)
     return -1;
   flexpwmWrite(p, submodule, channel, val);
-  if (teensy_gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
+  if (gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
     return -1;
   *gpio->mux = muxval;
   return 0;
 }
 
-int teensy_pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
-                          const teensy_gpio_pin_t *gpio, uint32_t val) {
+int pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
+                   const gpio_pin_t *gpio, uint32_t val) {
   if (p == NULL || gpio == NULL)
     return -1;
   quadtimerWrite(p, submodule, val);
-  if (teensy_gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
+  if (gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
     return -1;
   *gpio->mux = muxval;
   return 0;
 }
 
-int pwm_write_info(const teensy_pwm_pin_info_t *info,
-                   const teensy_gpio_pin_t *gpio, uint32_t val) {
+int pwm_write_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
+                   uint32_t val) {
   if (info == NULL || gpio == NULL)
     return -1;
   if (info->type == 1) {
@@ -215,8 +214,8 @@ int pwm_write_info(const teensy_pwm_pin_info_t *info,
     default:
       flexpwm = &IMXRT_FLEXPWM4;
     }
-    return teensy_pwm_write_flex(flexpwm, info->module & 3u, info->channel,
-                                 info->muxval, gpio, val);
+    return pwm_write_flex(flexpwm, info->module & 3u, info->channel,
+                          info->muxval, gpio, val);
   }
   if (info->type == 2) {
     IMXRT_TMR_t *qtimer;
@@ -233,8 +232,7 @@ int pwm_write_info(const teensy_pwm_pin_info_t *info,
     default:
       qtimer = &IMXRT_TMR4;
     }
-    return teensy_pwm_write_quad(qtimer, info->module & 3u, info->muxval, gpio,
-                                 val);
+    return pwm_write_quad(qtimer, info->module & 3u, info->muxval, gpio, val);
   }
   return -1;
 }
@@ -245,31 +243,31 @@ int pwm_write(uint8_t pin, uint32_t val) {
   return pwm_write_info(&pwm_pin_info[pin], gpio_pin_runtime(pin), val);
 }
 
-int teensy_pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule,
-                              uint8_t channel, uint8_t muxval,
-                              const teensy_gpio_pin_t *gpio, float frequency) {
+int pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+                       uint8_t muxval, const gpio_pin_t *gpio,
+                       float frequency) {
   if (p == NULL || gpio == NULL || frequency <= 0.0f)
     return -1;
   flexpwmFrequency(p, submodule, channel, frequency);
-  if (teensy_gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
+  if (gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
     return -1;
   *gpio->mux = muxval;
   return 0;
 }
 
-int teensy_pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
-                              const teensy_gpio_pin_t *gpio, float frequency) {
+int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
+                       const gpio_pin_t *gpio, float frequency) {
   if (p == NULL || gpio == NULL || frequency <= 0.0f)
     return -1;
   quadtimerFrequency(p, submodule, frequency);
-  if (teensy_gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
+  if (gpio_configure_pin(gpio, GPIO_OUTPUT) != 0)
     return -1;
   *gpio->mux = muxval;
   return 0;
 }
 
-int pwm_set_frequency_info(const teensy_pwm_pin_info_t *info,
-                           const teensy_gpio_pin_t *gpio, float frequency) {
+int pwm_set_frequency_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
+                           float frequency) {
   if (info == NULL || gpio == NULL || frequency <= 0.0f)
     return -1;
   if (info->type == 1) {
@@ -287,8 +285,8 @@ int pwm_set_frequency_info(const teensy_pwm_pin_info_t *info,
     default:
       flexpwm = &IMXRT_FLEXPWM4;
     }
-    return teensy_pwm_frequency_flex(flexpwm, info->module & 3u, info->channel,
-                                     info->muxval, gpio, frequency);
+    return pwm_frequency_flex(flexpwm, info->module & 3u, info->channel,
+                              info->muxval, gpio, frequency);
   }
   if (info->type == 2) {
     IMXRT_TMR_t *qtimer;
@@ -305,8 +303,8 @@ int pwm_set_frequency_info(const teensy_pwm_pin_info_t *info,
     default:
       qtimer = &IMXRT_TMR4;
     }
-    return teensy_pwm_frequency_quad(qtimer, info->module & 3u, info->muxval,
-                                     gpio, frequency);
+    return pwm_frequency_quad(qtimer, info->module & 3u, info->muxval, gpio,
+                              frequency);
   }
   return -1;
 }
