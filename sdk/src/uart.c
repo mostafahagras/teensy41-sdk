@@ -346,8 +346,9 @@ static void uart_irq_handler(const uart_device_t *device) {
   }
 }
 
-static int uart_init_instance(const uart_config_t *config, uart_state_t *state,
-                              uint32_t baud_rate) {
+int uart_init_device(uart_device_t *device, uint32_t baud_rate) {
+  const uart_config_t *config = device->config;
+  uart_state_t *state = device->state;
   IMXRT_LPUART_t *port;
   uint32_t primask;
 
@@ -397,17 +398,14 @@ static int uart_init_instance(const uart_config_t *config, uart_state_t *state,
   return 0;
 }
 
-int uart_init_device(uart_device_t *device, uint32_t baud_rate) {
-  return uart_init_instance(device->config, device->state, baud_rate);
-}
-
-int uart_init(uart_id_t uart, uint32_t baud_rate) {
+int uart_init_runtime(uart_id_t uart, uint32_t baud_rate) {
   if (!uart_valid(uart))
     return -1;
   return uart_init_device(uart_devices[uart], baud_rate);
 }
 
-static int uart_available_instance(uart_state_t *state) {
+int uart_available_device(uart_device_t *device) {
+  uart_state_t *state = device->state;
   uint32_t primask;
   uint16_t head;
   uint16_t tail;
@@ -422,17 +420,14 @@ static int uart_available_instance(uart_state_t *state) {
                       : (int)(UART_RX_CAPACITY + head - tail);
 }
 
-int uart_available_device(uart_device_t *device) {
-  return uart_available_instance(device->state);
-}
-
-int uart_available(uart_id_t uart) {
+int uart_available_runtime(uart_id_t uart) {
   if (!uart_valid(uart))
     return -1;
   return uart_available_device(uart_devices[uart]);
 }
 
-static int uart_read_instance(uart_state_t *state) {
+int uart_read_device(uart_device_t *device) {
+  uart_state_t *state = device->state;
   uint32_t primask;
   uint16_t tail;
   uint8_t byte;
@@ -451,19 +446,16 @@ static int uart_read_instance(uart_state_t *state) {
   return byte;
 }
 
-int uart_read_device(uart_device_t *device) {
-  return uart_read_instance(device->state);
-}
-
-int uart_read(uart_id_t uart) {
+int uart_read_runtime(uart_id_t uart) {
   if (!uart_valid(uart))
     return -1;
   return uart_read_device(uart_devices[uart]);
 }
 
-static size_t uart_write_instance(const uart_config_t *config,
-                                  uart_state_t *state, const void *data,
-                                  size_t length) {
+size_t uart_write_device(uart_device_t *device, const void *data,
+                         size_t length) {
+  const uart_config_t *config = device->config;
+  uart_state_t *state = device->state;
   const uint8_t *bytes = data;
   size_t written = 0;
   uint32_t primask;
@@ -486,12 +478,7 @@ static size_t uart_write_instance(const uart_config_t *config,
   return written;
 }
 
-size_t uart_write_device(uart_device_t *device, const void *data,
-                         size_t length) {
-  return uart_write_instance(device->config, device->state, data, length);
-}
-
-size_t uart_write(uart_id_t uart, const void *data, size_t length) {
+size_t uart_write_runtime(uart_id_t uart, const void *data, size_t length) {
   if (!uart_valid(uart))
     return 0;
   return uart_write_device(uart_devices[uart], data, length);
@@ -501,14 +488,16 @@ int uart_write_byte_device(uart_device_t *device, uint8_t byte) {
   return uart_write_device(device, &byte, 1) == 1 ? 0 : -1;
 }
 
-int uart_write_byte(uart_id_t uart, uint8_t byte) {
+int uart_write_byte_runtime(uart_id_t uart, uint8_t byte) {
   if (!uart_valid(uart))
     return -1;
   return uart_write_byte_device(uart_devices[uart], byte);
 }
 
-static void uart_flush_instance(const uart_config_t *config,
-                                uart_state_t *state) {
+void uart_flush_device(uart_device_t *device) {
+  const uart_config_t *config = device->config;
+  uart_state_t *state = device->state;
+
   if (!state->initialized)
     return;
   while (!uart_tx_empty(state))
@@ -517,11 +506,7 @@ static void uart_flush_instance(const uart_config_t *config,
     __asm volatile("wfi");
 }
 
-void uart_flush_device(uart_device_t *device) {
-  uart_flush_instance(device->config, device->state);
-}
-
-void uart_flush(uart_id_t uart) {
+void uart_flush_runtime(uart_id_t uart) {
   if (!uart_valid(uart))
     return;
   uart_flush_device(uart_devices[uart]);

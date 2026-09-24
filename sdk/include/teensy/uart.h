@@ -37,6 +37,8 @@ extern uart_device_t uart_device6;
 extern uart_device_t uart_device7;
 extern uart_device_t uart_device8;
 
+/* Device-level entry points: operate on an explicit UART device.  Not
+ * usually called directly; the public API below resolves to these. */
 int uart_init_device(uart_device_t *device, uint32_t baud_rate);
 int uart_available_device(uart_device_t *device);
 int uart_read_device(uart_device_t *device);
@@ -45,36 +47,17 @@ size_t uart_write_device(uart_device_t *device, const void *data,
 int uart_write_byte_device(uart_device_t *device, uint8_t byte);
 void uart_flush_device(uart_device_t *device);
 
-/** Initializes a UART with 8 data bits, no parity, and one stop bit.
- * @return 0 on success, or -1 if the UART or baud rate is invalid.
- */
-int uart_init(uart_id_t uart, uint32_t baud_rate);
+/* Runtime entry points: validate the UART id and dispatch by table
+ * lookup. */
+int uart_init_runtime(uart_id_t uart, uint32_t baud_rate);
+int uart_available_runtime(uart_id_t uart);
+int uart_read_runtime(uart_id_t uart);
+size_t uart_write_runtime(uart_id_t uart, const void *data, size_t length);
+int uart_write_byte_runtime(uart_id_t uart, uint8_t byte);
+void uart_flush_runtime(uart_id_t uart);
 
-/** Returns the number of received bytes currently buffered, or -1 for an
- * invalid UART.
- */
-int uart_available(uart_id_t uart);
-
-/** Reads one buffered byte.
- * @return The byte as an unsigned value, or -1 if no byte is available or the
- * UART is invalid.
- */
-int uart_read(uart_id_t uart);
-
-/** Queues bytes for transmission until the transmit buffer is full.
- * @return The number of bytes queued, which may be less than @p length, or 0
- * if the UART or buffer is invalid.
- */
-size_t uart_write(uart_id_t uart, const void *data, size_t length);
-
-/** Queues one byte for transmission.
- * @return 0 on success, or -1 if the UART is invalid or its buffer is full.
- */
-int uart_write_byte(uart_id_t uart, uint8_t byte);
-
-/** Blocks until all buffered bytes have been transmitted. */
-void uart_flush(uart_id_t uart);
-
+/* Constant-id paths: the switch folds to a single device at compile time
+ * when the UART id is a constant. */
 static inline __attribute__((always_inline)) int
 uart_init_const(uart_id_t uart, uint32_t baud_rate) {
   switch (uart) {
@@ -227,7 +210,7 @@ uart_flush_const(uart_id_t uart) {
   }
 }
 
-#ifndef TEENSY_UART_IMPLEMENTATION
+/* Compile-time UART id validation. */
 #if defined(__clang__)
 static inline void uart_validate(uart_id_t uart) __attribute__((
     diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
@@ -250,54 +233,81 @@ extern void uart_invalid_constant(void)
   })
 #endif
 
-#define uart_init(uart, baud_rate)                                             \
-  ({                                                                           \
-    TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          uart_init_const((uart_id_t)(uart), (baud_rate)),     \
-                          uart_init((uart_id_t)(uart), (baud_rate)));          \
-  })
+/* The public API dispatches on the UART id.  For constant ids the whole
+ * chain folds to the polled device's registers at compile time. */
 
-#define uart_available(uart)                                                   \
-  ({                                                                           \
-    TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          uart_available_const((uart_id_t)(uart)),             \
-                          uart_available((uart_id_t)(uart)));                  \
-  })
+/** Initializes a UART with 8 data bits, no parity, and one stop bit.
+ * @param uart One of the uart1..uart8 constants.
+ * @param baud_rate Baud rate in bits per second (e.g. 115200).
+ * @return 0 on success, or -1 if the UART or baud rate is invalid.
+ */
+static inline __attribute__((always_inline)) int uart_init(uart_id_t uart,
+                                                           uint32_t baud_rate) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  return __builtin_choose_expr(__builtin_constant_p(uart),
+                               uart_init_const(uart, baud_rate),
+                               uart_init_runtime(uart, baud_rate));
+}
 
-#define uart_read(uart)                                                        \
-  ({                                                                           \
-    TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          uart_read_const((uart_id_t)(uart)),                  \
-                          uart_read((uart_id_t)(uart)));                       \
-  })
+/** Returns the number of received bytes currently buffered, or -1 for an
+ * invalid UART.
+ * @param uart One of the uart1..uart8 constants.
+ */
+static inline __attribute__((always_inline)) int
+uart_available(uart_id_t uart) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  return __builtin_choose_expr(__builtin_constant_p(uart),
+                               uart_available_const(uart),
+                               uart_available_runtime(uart));
+}
 
-#define uart_write(uart, data, length)                                         \
-  ({                                                                           \
-    TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(                                                     \
-        __builtin_constant_p(uart),                                            \
-        uart_write_const((uart_id_t)(uart), (data), (length)),                 \
-        uart_write((uart_id_t)(uart), (data), (length)));                      \
-  })
+/** Reads one buffered byte.
+ * @param uart One of the uart1..uart8 constants.
+ * @return The byte as an unsigned value, or -1 if no byte is available or the
+ * UART is invalid.
+ */
+static inline __attribute__((always_inline)) int uart_read(uart_id_t uart) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  return __builtin_choose_expr(__builtin_constant_p(uart),
+                               uart_read_const(uart), uart_read_runtime(uart));
+}
 
-#define uart_write_byte(uart, byte)                                            \
-  ({                                                                           \
-    TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          uart_write_byte_const((uart_id_t)(uart), (byte)),    \
-                          uart_write_byte((uart_id_t)(uart), (byte)));         \
-  })
+/** Queues bytes for transmission until the transmit buffer is full.
+ * @param uart One of the uart1..uart8 constants.
+ * @param data Pointer to the bytes to queue.
+ * @param length Number of bytes to queue.
+ * @return The number of bytes queued, which may be less than @p length, or 0
+ * if the UART or buffer is invalid.
+ */
+static inline __attribute__((always_inline)) size_t uart_write(uart_id_t uart,
+                                                               const void *data,
+                                                               size_t length) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  return __builtin_choose_expr(__builtin_constant_p(uart),
+                               uart_write_const(uart, data, length),
+                               uart_write_runtime(uart, data, length));
+}
 
-#define uart_flush(uart)                                                       \
-  ({                                                                           \
-    TEENSY_UART_VALIDATE_CONSTANT(uart);                                       \
-    __builtin_choose_expr(__builtin_constant_p(uart),                          \
-                          uart_flush_const((uart_id_t)(uart)),                 \
-                          uart_flush((uart_id_t)(uart)));                      \
-  })
-#endif
+/** Queues one byte for transmission.
+ * @param uart One of the uart1..uart8 constants.
+ * @param byte Byte to queue.
+ * @return 0 on success, or -1 if the UART is invalid or its buffer is full.
+ */
+static inline __attribute__((always_inline)) int uart_write_byte(uart_id_t uart,
+                                                                 uint8_t byte) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  return __builtin_choose_expr(__builtin_constant_p(uart),
+                               uart_write_byte_const(uart, byte),
+                               uart_write_byte_runtime(uart, byte));
+}
+
+/** Blocks until all buffered bytes have been transmitted.
+ * @param uart One of the uart1..uart8 constants.
+ */
+static inline __attribute__((always_inline)) void uart_flush(uart_id_t uart) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  __builtin_choose_expr(__builtin_constant_p(uart), uart_flush_const(uart),
+                        uart_flush_runtime(uart));
+}
 
 #endif
