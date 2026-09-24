@@ -358,9 +358,9 @@ static void uart_irq_handler(const uart_device_t *device) {
   }
 }
 
-void uart_attach_rx(uart_id_t uart,
-                    void (*callback)(uint8_t byte, void *context),
-                    void *user_context) {
+void uart_attach_rx_impl(uart_id_t uart,
+                         void (*callback)(uint8_t byte, void *context),
+                         void *user_context) {
   if (!uart_valid(uart))
     return;
   uart_state_t *state = uart_devices[uart]->state;
@@ -370,8 +370,8 @@ void uart_attach_rx(uart_id_t uart,
   uart_critical_leave(primask);
 }
 
-void uart_attach_rx_idle(uart_id_t uart, void (*callback)(void *context),
-                         void *user_context) {
+void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
+                              void *user_context) {
   if (!uart_valid(uart))
     return;
   const uart_device_t *device = uart_devices[uart];

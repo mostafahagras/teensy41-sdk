@@ -224,15 +224,36 @@ extern void uart_invalid_constant(void)
   })
 #endif
 
+/* Implementation entry points; not usually called directly. */
+void uart_attach_rx_impl(uart_id_t uart,
+                         void (*callback)(uint8_t byte, void *context),
+                         void *context);
+void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
+                              void *context);
+
 /** Attaches a handler called from the RX interrupt for every received
  * byte, interrupt context (do not block).  Pass NULL to detach.
  * @param uart One of the uart1..uart8 constants.
  * @param callback Handler, receives the byte and @p context; NULL disables.
  * @param context Passed through to @p callback.
  */
-void uart_attach_rx(uart_id_t uart,
-                    void (*callback)(uint8_t byte, void *context),
-                    void *context);
+#if defined(__clang__)
+static inline void uart_attach_rx(uart_id_t uart,
+                                  void (*callback)(uint8_t byte, void *context),
+                                  void *context)
+    __attribute__((diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                               "invalid Teensy UART; expected uart1 through "
+                               "uart8",
+                               "error")));
+#endif
+static inline __attribute__((always_inline)) void
+uart_attach_rx(uart_id_t uart, void (*callback)(uint8_t byte, void *context),
+               void *context) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return;
+  uart_attach_rx_impl(uart, callback, context);
+}
 
 /** Attaches a handler called when the RX line has been idle for one
  * frame time (end of a burst), interrupt context (do not block).  Useful
@@ -242,8 +263,23 @@ void uart_attach_rx(uart_id_t uart,
  * @param callback Handler, receives @p context; NULL disables.
  * @param context Passed through to @p callback.
  */
-void uart_attach_rx_idle(uart_id_t uart, void (*callback)(void *context),
-                         void *context);
+#if defined(__clang__)
+static inline void uart_attach_rx_idle(uart_id_t uart,
+                                       void (*callback)(void *context),
+                                       void *context)
+    __attribute__((diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                               "invalid Teensy UART; expected uart1 through "
+                               "uart8",
+                               "error")));
+#endif
+static inline __attribute__((always_inline)) void
+uart_attach_rx_idle(uart_id_t uart, void (*callback)(void *context),
+                    void *context) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return;
+  uart_attach_rx_idle_impl(uart, callback, context);
+}
 
 /* The public API dispatches on the UART id.  For constant ids the whole
  * chain folds to the polled device's registers at compile time.
