@@ -398,12 +398,6 @@ int uart_init_device(uart_device_t *device, uint32_t baud_rate) {
   return 0;
 }
 
-int uart_init_runtime(uart_id_t uart, uint32_t baud_rate) {
-  if (!uart_valid(uart))
-    return -1;
-  return uart_init_device(uart_devices[uart], baud_rate);
-}
-
 int uart_available_device(uart_device_t *device) {
   uart_state_t *state = device->state;
   uint32_t primask;
@@ -418,12 +412,6 @@ int uart_available_device(uart_device_t *device) {
   uart_critical_leave(primask);
   return head >= tail ? (int)(head - tail)
                       : (int)(UART_RX_CAPACITY + head - tail);
-}
-
-int uart_available_runtime(uart_id_t uart) {
-  if (!uart_valid(uart))
-    return -1;
-  return uart_available_device(uart_devices[uart]);
 }
 
 int uart_read_device(uart_device_t *device) {
@@ -444,12 +432,6 @@ int uart_read_device(uart_device_t *device) {
   state->rx_tail = (uint16_t)((tail + 1u) % UART_RX_CAPACITY);
   uart_critical_leave(primask);
   return byte;
-}
-
-int uart_read_runtime(uart_id_t uart) {
-  if (!uart_valid(uart))
-    return -1;
-  return uart_read_device(uart_devices[uart]);
 }
 
 size_t uart_write_device(uart_device_t *device, const void *data,
@@ -478,20 +460,8 @@ size_t uart_write_device(uart_device_t *device, const void *data,
   return written;
 }
 
-size_t uart_write_runtime(uart_id_t uart, const void *data, size_t length) {
-  if (!uart_valid(uart))
-    return 0;
-  return uart_write_device(uart_devices[uart], data, length);
-}
-
 int uart_write_byte_device(uart_device_t *device, uint8_t byte) {
   return uart_write_device(device, &byte, 1) == 1 ? 0 : -1;
-}
-
-int uart_write_byte_runtime(uart_id_t uart, uint8_t byte) {
-  if (!uart_valid(uart))
-    return -1;
-  return uart_write_byte_device(uart_devices[uart], byte);
 }
 
 void uart_flush_device(uart_device_t *device) {
@@ -504,10 +474,4 @@ void uart_flush_device(uart_device_t *device) {
     __asm volatile("wfi");
   while (!(config->port->STAT & LPUART_STAT_TC))
     __asm volatile("wfi");
-}
-
-void uart_flush_runtime(uart_id_t uart) {
-  if (!uart_valid(uart))
-    return;
-  uart_flush_device(uart_devices[uart]);
 }

@@ -47,15 +47,6 @@ size_t uart_write_device(uart_device_t *device, const void *data,
 int uart_write_byte_device(uart_device_t *device, uint8_t byte);
 void uart_flush_device(uart_device_t *device);
 
-/* Runtime entry points: validate the UART id and dispatch by table
- * lookup. */
-int uart_init_runtime(uart_id_t uart, uint32_t baud_rate);
-int uart_available_runtime(uart_id_t uart);
-int uart_read_runtime(uart_id_t uart);
-size_t uart_write_runtime(uart_id_t uart, const void *data, size_t length);
-int uart_write_byte_runtime(uart_id_t uart, uint8_t byte);
-void uart_flush_runtime(uart_id_t uart);
-
 /* Constant-id paths: the switch folds to a single device at compile time
  * when the UART id is a constant. */
 static inline __attribute__((always_inline)) int
@@ -253,9 +244,9 @@ static inline int uart_init(uart_id_t uart, uint32_t baud_rate) __attribute__((
 static inline __attribute__((always_inline)) int uart_init(uart_id_t uart,
                                                            uint32_t baud_rate) {
   TEENSY_UART_VALIDATE_CONSTANT(uart);
-  return __builtin_choose_expr(__builtin_constant_p(uart),
-                               uart_init_const(uart, baud_rate),
-                               uart_init_runtime(uart, baud_rate));
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return -1;
+  return uart_init_const(uart, baud_rate);
 }
 
 /** Returns the number of received bytes currently buffered, or -1 for an
@@ -265,9 +256,9 @@ static inline __attribute__((always_inline)) int uart_init(uart_id_t uart,
 static inline __attribute__((always_inline)) int
 uart_available(uart_id_t uart) {
   TEENSY_UART_VALIDATE_CONSTANT(uart);
-  return __builtin_choose_expr(__builtin_constant_p(uart),
-                               uart_available_const(uart),
-                               uart_available_runtime(uart));
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return -1;
+  return uart_available_const(uart);
 }
 
 /** Reads one buffered byte.
@@ -277,8 +268,9 @@ uart_available(uart_id_t uart) {
  */
 static inline __attribute__((always_inline)) int uart_read(uart_id_t uart) {
   TEENSY_UART_VALIDATE_CONSTANT(uart);
-  return __builtin_choose_expr(__builtin_constant_p(uart),
-                               uart_read_const(uart), uart_read_runtime(uart));
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return -1;
+  return uart_read_const(uart);
 }
 
 /** Queues bytes for transmission until the transmit buffer is full.
@@ -292,9 +284,9 @@ static inline __attribute__((always_inline)) size_t uart_write(uart_id_t uart,
                                                                const void *data,
                                                                size_t length) {
   TEENSY_UART_VALIDATE_CONSTANT(uart);
-  return __builtin_choose_expr(__builtin_constant_p(uart),
-                               uart_write_const(uart, data, length),
-                               uart_write_runtime(uart, data, length));
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return 0;
+  return uart_write_const(uart, data, length);
 }
 
 /** Queues one byte for transmission.
@@ -305,9 +297,9 @@ static inline __attribute__((always_inline)) size_t uart_write(uart_id_t uart,
 static inline __attribute__((always_inline)) int uart_write_byte(uart_id_t uart,
                                                                  uint8_t byte) {
   TEENSY_UART_VALIDATE_CONSTANT(uart);
-  return __builtin_choose_expr(__builtin_constant_p(uart),
-                               uart_write_byte_const(uart, byte),
-                               uart_write_byte_runtime(uart, byte));
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return -1;
+  return uart_write_byte_const(uart, byte);
 }
 
 /** Blocks until all buffered bytes have been transmitted.
@@ -315,8 +307,8 @@ static inline __attribute__((always_inline)) int uart_write_byte(uart_id_t uart,
  */
 static inline __attribute__((always_inline)) void uart_flush(uart_id_t uart) {
   TEENSY_UART_VALIDATE_CONSTANT(uart);
-  __builtin_choose_expr(__builtin_constant_p(uart), uart_flush_const(uart),
-                        uart_flush_runtime(uart));
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return;
+  uart_flush_const(uart);
 }
-
 #endif
