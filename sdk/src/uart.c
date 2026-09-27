@@ -5,6 +5,7 @@
 #include <teensy/clock.h>
 #include <teensy/gpio.h>
 #include <teensy/imxrt.h>
+#include <teensy/time.h>
 #define TEENSY_UART_IMPLEMENTATION
 #include <teensy/uart.h>
 
@@ -400,7 +401,7 @@ void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
 }
 
 int uart_set_format_device(uart_device_t *device, uint8_t data_bits,
-                         uint8_t stop_bits, uart_parity_t parity) {
+                           uint8_t stop_bits, uart_parity_t parity) {
   uart_state_t *state = device->state;
   volatile IMXRT_LPUART_t *port = device->config->port;
   uint32_t ctrl;
@@ -461,6 +462,43 @@ uint32_t uart_set_baud_device(uart_device_t *device, uint32_t baud_rate) {
   port->CTRL = ctrl;
   uart_critical_leave(primask);
   return actual;
+}
+
+void uart_clear_device(uart_device_t *device) {
+  uart_state_t *state = device->state;
+  uint32_t primask;
+
+  primask = uart_critical_enter();
+  state->rx_tail = state->rx_head;
+  uart_critical_leave(primask);
+}
+
+int uart_available_for_write_device(uart_device_t *device) {
+  uart_state_t *state = device->state;
+  uint32_t primask;
+  int free_bytes;
+
+  if (!state->initialized)
+    return 0;
+  primask = uart_critical_enter();
+  free_bytes = (int)(UART_TX_CAPACITY + state->tx_tail - state->tx_head - 1u) %
+               (int)UART_TX_CAPACITY;
+  uart_critical_leave(primask);
+  return free_bytes;
+}
+
+bool uart_is_readable_within_us_device(uart_device_t *device, uint32_t us) {
+  uart_state_t *state = device->state;
+  uint32_t start;
+
+  if (!state->initialized)
+    return false;
+  start = time_micros();
+  while ((uint32_t)(time_micros() - start) < us) {
+    if (state->rx_head != state->rx_tail)
+      return true;
+  }
+  return state->rx_head != state->rx_tail;
 }
 
 int uart_init_device(uart_device_t *device, uint32_t baud_rate) {

@@ -74,7 +74,12 @@ function(teensy_target_options target)
         -nodefaultlibs
         "-T${TEENSY_LINKER_SCRIPT}"
         -Wl,--gc-sections
-        -Wl,--relax)
+        -Wl,--relax
+        # One RWX load segment is intentional: the ITCM image is loaded from
+        # flash and copied to RAM at startup, so text/code/data share a
+        # segment (same layout as Teensyduino binaries).  Silence the
+        # binutils 2.39+ RWX warning.
+        -Wl,--no-warn-rwx-segments)
 
     target_link_libraries(${target} PRIVATE gcc)
     set_property(TARGET ${target} APPEND PROPERTY LINK_DEPENDS "${TEENSY_LINKER_SCRIPT}")

@@ -1,6 +1,7 @@
 #ifndef TEENSY_UART_H
 #define TEENSY_UART_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -55,6 +56,9 @@ size_t uart_write_device(uart_device_t *device, const void *data,
                          size_t length);
 int uart_write_byte_device(uart_device_t *device, uint8_t byte);
 void uart_flush_device(uart_device_t *device);
+void uart_clear_device(uart_device_t *device);
+int uart_available_for_write_device(uart_device_t *device);
+bool uart_is_readable_within_us_device(uart_device_t *device, uint32_t us);
 int uart_set_format_device(uart_device_t *device, uint8_t data_bits,
                            uint8_t stop_bits, uart_parity_t parity);
 uint32_t uart_set_baud_device(uart_device_t *device, uint32_t baud_rate);
@@ -144,6 +148,65 @@ void uart_attach_rx_impl(uart_id_t uart,
                          void *context);
 void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
                               void *context);
+
+/** Discards all received-but-unread bytes of a UART.
+ * @param uart One of the uart1..uart8 constants.
+ */
+#if defined(__clang__)
+static inline void uart_clear(uart_id_t uart)
+    __attribute__((diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                               "invalid Teensy UART; expected uart1 through "
+                               "uart8",
+                               "error")));
+#endif
+static inline __attribute__((always_inline)) void uart_clear(uart_id_t uart) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return;
+  TEENSY_UART_DEVICE_SWITCH(uart_clear_device, uart, );
+}
+
+/** Returns the number of bytes that uart_write() would queue into the
+ * transmit buffer without blocking.
+ * @param uart One of the uart1..uart8 constants.
+ * @return Free bytes in the transmit ring, or 0 if uninitialized.
+ */
+#if defined(__clang__)
+static inline int uart_available_for_write(uart_id_t uart)
+    __attribute__((diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                               "invalid Teensy UART; expected uart1 through "
+                               "uart8",
+                               "error")));
+#endif
+static inline __attribute__((always_inline)) int
+uart_available_for_write(uart_id_t uart) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return 0;
+  TEENSY_UART_DEVICE_SWITCH(uart_available_for_write_device, uart, 0);
+}
+
+/** Waits up to @p us microseconds for at least one byte to arrive.
+ * Busy-waits with the DWT-based time_micros() clock; requires that
+ * time_init() has run.
+ * @param uart One of the uart1..uart8 constants.
+ * @param us Maximum wait in microseconds (0 = instantaneous check).
+ * @return true if a byte was received within the window, else false.
+ */
+#if defined(__clang__)
+static inline bool uart_is_readable_within_us(uart_id_t uart, uint32_t us)
+    __attribute__((diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                               "invalid Teensy UART; expected uart1 through "
+                               "uart8",
+                               "error")));
+#endif
+static inline __attribute__((always_inline)) bool
+uart_is_readable_within_us(uart_id_t uart, uint32_t us) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return false;
+  TEENSY_UART_DEVICE_SWITCH(uart_is_readable_within_us_device, uart, false, us);
+}
 
 /** Sets the data/stop/parity framing of an initialized UART.  LPUART
  * hardware constraint: 7 data bits require a parity bit; 5/6-bit frames
