@@ -399,7 +399,7 @@ void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
   uart_critical_leave(primask);
 }
 
-int uart_set_format_impl(uart_device_t *device, uint8_t data_bits,
+int uart_set_format_device(uart_device_t *device, uint8_t data_bits,
                          uint8_t stop_bits, uart_parity_t parity) {
   uart_state_t *state = device->state;
   volatile IMXRT_LPUART_t *port = device->config->port;
@@ -440,7 +440,7 @@ int uart_set_format_impl(uart_device_t *device, uint8_t data_bits,
   return 0;
 }
 
-uint32_t uart_set_baud_impl(uart_device_t *device, uint32_t baud_rate) {
+uint32_t uart_set_baud_device(uart_device_t *device, uint32_t baud_rate) {
   uart_state_t *state = device->state;
   volatile IMXRT_LPUART_t *port = device->config->port;
   uint32_t osr = 0;
