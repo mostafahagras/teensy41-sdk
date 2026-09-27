@@ -51,31 +51,31 @@ struct uart_device {
   uart_state_t *state;
 };
 
-static uart_state_t uart_state1;
-static uart_state_t uart_state2;
+static uart_state_t uart_state6;
 static uart_state_t uart_state3;
 static uart_state_t uart_state4;
-static uart_state_t uart_state5;
-static uart_state_t uart_state6;
-static uart_state_t uart_state7;
+static uart_state_t uart_state2;
 static uart_state_t uart_state8;
+static uart_state_t uart_state1;
+static uart_state_t uart_state7;
+static uart_state_t uart_state5;
 
 static void uart_irq_handler(const uart_device_t *device);
-static void uart_irq_handler1(void);
-static void uart_irq_handler2(void);
+static void uart_irq_handler6(void);
 static void uart_irq_handler3(void);
 static void uart_irq_handler4(void);
-static void uart_irq_handler5(void);
-static void uart_irq_handler6(void);
-static void uart_irq_handler7(void);
+static void uart_irq_handler2(void);
 static void uart_irq_handler8(void);
+static void uart_irq_handler1(void);
+static void uart_irq_handler7(void);
+static void uart_irq_handler5(void);
 
-static const uart_config_t uart_config1 = {
+static const uart_config_t uart_config6 = {
     &IMXRT_LPUART1,
     &CCM_CCGR5,
     CCM_CCGR5_LPUART1(CCM_CCGR_ON),
     IRQ_LPUART1,
-    uart_irq_handler1,
+    uart_irq_handler6,
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 13, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_13,
                                IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_13),
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 12, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12,
@@ -90,12 +90,12 @@ static const uart_config_t uart_config1 = {
     NULL,
     2,
     0};
-static const uart_config_t uart_config2 = {
+static const uart_config_t uart_config3 = {
     &IMXRT_LPUART2,
     &CCM_CCGR0,
     CCM_CCGR0_LPUART2(CCM_CCGR_ON),
     IRQ_LPUART2,
-    uart_irq_handler2,
+    uart_irq_handler3,
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 19, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03,
                                IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_03),
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 18, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_02,
@@ -110,12 +110,12 @@ static const uart_config_t uart_config2 = {
     &IOMUXC_LPUART2_TX_SELECT_INPUT,
     2,
     1};
-static const uart_config_t uart_config3 = {
+static const uart_config_t uart_config4 = {
     &IMXRT_LPUART3,
     &CCM_CCGR0,
     CCM_CCGR0_LPUART3(CCM_CCGR_ON),
     IRQ_LPUART3,
-    uart_irq_handler3,
+    uart_irq_handler4,
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 23, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_07,
                                IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_07),
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 22, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_06,
@@ -130,12 +130,12 @@ static const uart_config_t uart_config3 = {
     &IOMUXC_LPUART3_TX_SELECT_INPUT,
     2,
     0};
-static const uart_config_t uart_config4 = {
+static const uart_config_t uart_config2 = {
     &IMXRT_LPUART4,
     &CCM_CCGR1,
     CCM_CCGR1_LPUART4(CCM_CCGR_ON),
     IRQ_LPUART4,
-    uart_irq_handler4,
+    uart_irq_handler2,
     TEENSY_GPIO_PIN_DESCRIPTOR(7, 17, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01,
                                IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_01),
     TEENSY_GPIO_PIN_DESCRIPTOR(7, 16, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_00,
@@ -150,12 +150,12 @@ static const uart_config_t uart_config4 = {
     &IOMUXC_LPUART4_TX_SELECT_INPUT,
     2,
     2};
-static const uart_config_t uart_config5 = {
+static const uart_config_t uart_config8 = {
     &IMXRT_LPUART5,
     &CCM_CCGR3,
     CCM_CCGR3_LPUART5(CCM_CCGR_ON),
     IRQ_LPUART5,
-    uart_irq_handler5,
+    uart_irq_handler8,
     TEENSY_GPIO_PIN_DESCRIPTOR(7, 29, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_13,
                                IOMUXC_SW_PAD_CTL_PAD_GPIO_B1_13),
     TEENSY_GPIO_PIN_DESCRIPTOR(7, 28, IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_12,
@@ -170,12 +170,12 @@ static const uart_config_t uart_config5 = {
     NULL,
     1,
     0};
-static const uart_config_t uart_config6 = {
+static const uart_config_t uart_config1 = {
     &IMXRT_LPUART6,
     &CCM_CCGR3,
     CCM_CCGR3_LPUART6(CCM_CCGR_ON),
     IRQ_LPUART6,
-    uart_irq_handler6,
+    uart_irq_handler1,
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 3, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_03,
                                IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B0_03),
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 2, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_02,
@@ -210,12 +210,12 @@ static const uart_config_t uart_config7 = {
     &IOMUXC_LPUART7_TX_SELECT_INPUT,
     2,
     0};
-static const uart_config_t uart_config8 = {
+static const uart_config_t uart_config5 = {
     &IMXRT_LPUART8,
     &CCM_CCGR6,
     CCM_CCGR6_LPUART8(CCM_CCGR_ON),
     IRQ_LPUART8,
-    uart_irq_handler8,
+    uart_irq_handler5,
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 27, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11,
                                IOMUXC_SW_PAD_CTL_PAD_GPIO_AD_B1_11),
     TEENSY_GPIO_PIN_DESCRIPTOR(6, 26, IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_10,
@@ -231,29 +231,29 @@ static const uart_config_t uart_config8 = {
     2,
     1};
 
-uart_device_t uart_device1 = {&uart_config1, &uart_state1};
-uart_device_t uart_device2 = {&uart_config2, &uart_state2};
+uart_device_t uart_device6 = {&uart_config6, &uart_state6};
 uart_device_t uart_device3 = {&uart_config3, &uart_state3};
 uart_device_t uart_device4 = {&uart_config4, &uart_state4};
-uart_device_t uart_device5 = {&uart_config5, &uart_state5};
-uart_device_t uart_device6 = {&uart_config6, &uart_state6};
-uart_device_t uart_device7 = {&uart_config7, &uart_state7};
+uart_device_t uart_device2 = {&uart_config2, &uart_state2};
 uart_device_t uart_device8 = {&uart_config8, &uart_state8};
+uart_device_t uart_device1 = {&uart_config1, &uart_state1};
+uart_device_t uart_device7 = {&uart_config7, &uart_state7};
+uart_device_t uart_device5 = {&uart_config5, &uart_state5};
 
 static uart_device_t *const uart_devices[UART_COUNT] = {
-    [UART_ID_1] = &uart_device1, [UART_ID_2] = &uart_device2,
-    [UART_ID_3] = &uart_device3, [UART_ID_4] = &uart_device4,
-    [UART_ID_5] = &uart_device5, [UART_ID_6] = &uart_device6,
-    [UART_ID_7] = &uart_device7, [UART_ID_8] = &uart_device8};
+    [UART_ID_1] = &uart_device6, [UART_ID_2] = &uart_device3,
+    [UART_ID_3] = &uart_device4, [UART_ID_4] = &uart_device2,
+    [UART_ID_5] = &uart_device8, [UART_ID_6] = &uart_device1,
+    [UART_ID_7] = &uart_device7, [UART_ID_8] = &uart_device5};
 
-static void uart_irq_handler1(void) { uart_irq_handler(&uart_device1); }
-static void uart_irq_handler2(void) { uart_irq_handler(&uart_device2); }
+static void uart_irq_handler6(void) { uart_irq_handler(&uart_device6); }
 static void uart_irq_handler3(void) { uart_irq_handler(&uart_device3); }
 static void uart_irq_handler4(void) { uart_irq_handler(&uart_device4); }
-static void uart_irq_handler5(void) { uart_irq_handler(&uart_device5); }
-static void uart_irq_handler6(void) { uart_irq_handler(&uart_device6); }
-static void uart_irq_handler7(void) { uart_irq_handler(&uart_device7); }
+static void uart_irq_handler2(void) { uart_irq_handler(&uart_device2); }
 static void uart_irq_handler8(void) { uart_irq_handler(&uart_device8); }
+static void uart_irq_handler1(void) { uart_irq_handler(&uart_device1); }
+static void uart_irq_handler7(void) { uart_irq_handler(&uart_device7); }
+static void uart_irq_handler5(void) { uart_irq_handler(&uart_device5); }
 
 static bool uart_valid(uart_id_t uart) {
   return uart >= UART_ID_1 && uart <= UART_ID_8;

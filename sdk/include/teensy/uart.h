@@ -4,16 +4,19 @@
 #include <stddef.h>
 #include <stdint.h>
 
+/* Uarts are numbered after the Teensy silkscreen RX<N>/TX<N> pin pairs:
+ * uart1 drives the pins labeled RX1/TX1, etc.  The underlying hardware
+ * LPUART is listed for reference. */
 typedef enum {
   UART_ID_INVALID = 0,
-  UART_ID_1 = 1, /* LPUART1 */
-  UART_ID_2,     /* LPUART2 */
-  UART_ID_3,     /* LPUART3 */
-  UART_ID_4,     /* LPUART4 */
-  UART_ID_5,     /* LPUART5 */
-  UART_ID_6,     /* LPUART6 */
-  UART_ID_7,     /* LPUART7 */
-  UART_ID_8,     /* LPUART8 */
+  UART_ID_1 = 1, /* LPUART6,  Teensy pins RX1 = 0, TX1 = 1   */
+  UART_ID_2,     /* LPUART4,  Teensy pins RX2 = 7, TX2 = 8   */
+  UART_ID_3,     /* LPUART2,  Teensy pins TX3 = 14, RX3 = 15 */
+  UART_ID_4,     /* LPUART3,  Teensy pins RX4 = 16, TX4 = 17 */
+  UART_ID_5,     /* LPUART8,  Teensy pins TX5 = 20, RX5 = 21 */
+  UART_ID_6,     /* LPUART1,  Teensy pins TX6 = 24, RX6 = 25 */
+  UART_ID_7,     /* LPUART7,  Teensy pins RX7 = 28, TX7 = 29 */
+  UART_ID_8,     /* LPUART5,  Teensy pins RX8 = 34, TX8 = 35 */
   UART_COUNT = 9
 } uart_id_t;
 
@@ -28,14 +31,14 @@ typedef struct uart_device uart_device_t;
 #define uart7 ((uart_id_t)UART_ID_7)
 #define uart8 ((uart_id_t)UART_ID_8)
 
-extern uart_device_t uart_device1;
-extern uart_device_t uart_device2;
+extern uart_device_t uart_device6;
 extern uart_device_t uart_device3;
 extern uart_device_t uart_device4;
-extern uart_device_t uart_device5;
-extern uart_device_t uart_device6;
-extern uart_device_t uart_device7;
+extern uart_device_t uart_device2;
 extern uart_device_t uart_device8;
+extern uart_device_t uart_device1;
+extern uart_device_t uart_device7;
+extern uart_device_t uart_device5;
 
 /* Device-level entry points: operate on an explicit UART device.  Not
  * usually called directly; the public API below resolves to these. */
