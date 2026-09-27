@@ -275,7 +275,10 @@ static void uart_critical_leave(uint32_t primask) {
     __enable_irq();
 }
 
-static uint32_t uart_baud_register(uint32_t baud_rate) {
+/* Finds the best over-sampling/divisor pair for @p baud_rate and returns
+ * the achieved rate through @p actual. */
+static uint32_t uart_best_baud(uint32_t baud_rate, uint32_t *osr_out,
+                               uint32_t *sbr_out) {
   uint32_t best_osr = 4;
   uint32_t best_sbr = 1;
   uint32_t best_error = UINT32_MAX;
@@ -303,8 +306,20 @@ static uint32_t uart_baud_register(uint32_t baud_rate) {
     }
   }
 
-  return LPUART_BAUD_OSR(best_osr - 1u) | LPUART_BAUD_SBR(best_sbr) |
-         (best_osr <= 8u ? LPUART_BAUD_BOTHEDGE : 0u);
+  *osr_out = best_osr;
+  *sbr_out = best_sbr;
+  return clock_uart_frequency_hz / (best_osr * best_sbr);
+}
+
+static uint32_t uart_baud_register(uint32_t baud_rate) {
+  uint32_t osr = 0;
+  uint32_t sbr = 0;
+  uint32_t actual;
+
+  actual = uart_best_baud(baud_rate, &osr, &sbr);
+  (void)actual;
+  return LPUART_BAUD_OSR(osr - 1u) | LPUART_BAUD_SBR(sbr) |
+         (osr <= 8u ? LPUART_BAUD_BOTHEDGE : 0u);
 }
 
 static bool uart_tx_empty(const uart_state_t *state) {
@@ -382,6 +397,70 @@ void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
   port->CTRL = callback ? (port->CTRL | LPUART_CTRL_ILIE)
                         : (port->CTRL & ~LPUART_CTRL_ILIE);
   uart_critical_leave(primask);
+}
+
+int uart_set_format_impl(uart_device_t *device, uint8_t data_bits,
+                         uint8_t stop_bits, uart_parity_t parity) {
+  uart_state_t *state = device->state;
+  volatile IMXRT_LPUART_t *port = device->config->port;
+  uint32_t ctrl;
+  uint32_t baud;
+
+  if (!state->initialized)
+    return -1;
+  /* LPUART framing is decided in data-bit/parity pairs: 8 bits without
+   * parity, 8 bits + 1 parity with M set, or 7 bits + 1 parity without M.
+   * 5/6-bit frames and 7 bits without parity are not expressible. */
+  if (data_bits != 7 && data_bits != 8)
+    return -1;
+  if (data_bits == 7 && parity == UART_PARITY_NONE)
+    return -1;
+  if (stop_bits < 1 || stop_bits > 2)
+    return -1;
+
+  uint32_t primask = uart_critical_enter();
+  port->CTRL &= ~(LPUART_CTRL_TE | LPUART_CTRL_RE);
+  while (!(port->STAT & LPUART_STAT_TC))
+    ;
+  ctrl = port->CTRL;
+  ctrl &= ~(LPUART_CTRL_M | LPUART_CTRL_PE | LPUART_CTRL_PT);
+  if (parity != UART_PARITY_NONE)
+    ctrl |= LPUART_CTRL_PE;
+  if (parity == UART_PARITY_ODD)
+    ctrl |= LPUART_CTRL_PT;
+  if (data_bits == 8 && parity != UART_PARITY_NONE)
+    ctrl |= LPUART_CTRL_M;
+  port->CTRL = ctrl;
+  baud = port->BAUD & ~LPUART_BAUD_SBNS;
+  if (stop_bits == 2)
+    baud |= LPUART_BAUD_SBNS;
+  port->BAUD = baud;
+  port->CTRL |= LPUART_CTRL_TE | LPUART_CTRL_RE;
+  uart_critical_leave(primask);
+  return 0;
+}
+
+uint32_t uart_set_baud_impl(uart_device_t *device, uint32_t baud_rate) {
+  uart_state_t *state = device->state;
+  volatile IMXRT_LPUART_t *port = device->config->port;
+  uint32_t osr = 0;
+  uint32_t sbr = 0;
+  uint32_t actual;
+  uint32_t ctrl;
+
+  if (!state->initialized || baud_rate == 0)
+    return 0;
+  actual = uart_best_baud(baud_rate, &osr, &sbr);
+  uint32_t primask = uart_critical_enter();
+  ctrl = port->CTRL;
+  port->CTRL = ctrl & ~(LPUART_CTRL_TE | LPUART_CTRL_RE);
+  while (!(port->STAT & LPUART_STAT_TC))
+    ;
+  port->BAUD = LPUART_BAUD_OSR(osr - 1u) | LPUART_BAUD_SBR(sbr) |
+               (osr <= 8u ? LPUART_BAUD_BOTHEDGE : 0u);
+  port->CTRL = ctrl;
+  uart_critical_leave(primask);
+  return actual;
 }
 
 int uart_init_device(uart_device_t *device, uint32_t baud_rate) {

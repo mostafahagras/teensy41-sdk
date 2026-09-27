@@ -20,6 +20,12 @@ typedef enum {
   UART_COUNT = 9
 } uart_id_t;
 
+typedef enum {
+  UART_PARITY_NONE = 0,
+  UART_PARITY_EVEN = 1,
+  UART_PARITY_ODD = 2
+} uart_parity_t;
+
 typedef struct uart_device uart_device_t;
 
 #define uart1 ((uart_id_t)UART_ID_1)
@@ -49,6 +55,9 @@ size_t uart_write_device(uart_device_t *device, const void *data,
                          size_t length);
 int uart_write_byte_device(uart_device_t *device, uint8_t byte);
 void uart_flush_device(uart_device_t *device);
+int uart_set_format_device(uart_device_t *device, uint8_t data_bits,
+                           uint8_t stop_bits, uart_parity_t parity);
+uint32_t uart_set_baud_device(uart_device_t *device, uint32_t baud_rate);
 
 /* Constant-id paths: at a constant id switch(uart) resolves to a single
  * device at compile time; with a runtime id it becomes the dispatch
@@ -135,6 +144,56 @@ void uart_attach_rx_impl(uart_id_t uart,
                          void *context);
 void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
                               void *context);
+
+/** Sets the data/stop/parity framing of an initialized UART.  LPUART
+ * hardware constraint: 7 data bits require a parity bit; 5/6-bit frames
+ * are not expressible.  Pauses transmission until the current frame
+ * completes.
+ * @param uart One of the uart1..uart8 constants.
+ * @param data_bits 7 or 8 (7 requires parity).
+ * @param stop_bits 1 or 2.
+ * @param parity UART_PARITY_NONE, UART_PARITY_EVEN or UART_PARITY_ODD.
+ * @return 0 on success, -1 if the UART is uninitialized or the framing
+ * is not expressible in LPUART hardware.
+ */
+#if defined(__clang__)
+static inline int uart_set_format(uart_id_t uart, uint8_t data_bits,
+                                  uint8_t stop_bits, uart_parity_t parity)
+    __attribute__((diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                               "invalid Teensy UART; expected uart1 through "
+                               "uart8",
+                               "error")));
+#endif
+static inline __attribute__((always_inline)) int
+uart_set_format(uart_id_t uart, uint8_t data_bits, uint8_t stop_bits,
+                uart_parity_t parity) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return -1;
+  TEENSY_UART_DEVICE_SWITCH(uart_set_format_device, uart, -1, data_bits,
+                            stop_bits, parity);
+}
+
+/** Changes the baud rate of an initialized UART.
+ * @param uart One of the uart1..uart8 constants.
+ * @param baud_rate Requested baud in bits per second.
+ * @return The achieved baud (closest hardware divisor), or 0 on error.
+ */
+#if defined(__clang__)
+static inline uint32_t uart_set_baud(uart_id_t uart, uint32_t baud_rate)
+    __attribute__((diagnose_if(uart < UART_ID_1 || uart > UART_ID_8,
+                               "invalid Teensy UART; expected uart1 through "
+                               "uart8",
+                               "error")));
+#endif
+static inline
+    __attribute__((always_inline)) uint32_t uart_set_baud(uart_id_t uart,
+                                                          uint32_t baud_rate) {
+  TEENSY_UART_VALIDATE_CONSTANT(uart);
+  if (uart < UART_ID_1 || uart > UART_ID_8)
+    return 0;
+  TEENSY_UART_DEVICE_SWITCH(uart_set_baud_device, uart, 0, baud_rate);
+}
 
 /** Attaches a handler called from the RX interrupt for every received
  * byte, interrupt context (do not block).  Pass NULL to detach.
