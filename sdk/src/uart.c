@@ -374,27 +374,24 @@ static void uart_irq_handler(const uart_device_t *device) {
   }
 }
 
-void uart_attach_rx_impl(uart_id_t uart,
-                         void (*callback)(uint8_t byte, void *context),
-                         void *user_context) {
-  if (!uart_valid(uart))
-    return;
-  uart_state_t *state = uart_devices[uart]->state;
+void uart_attach_rx_device(uart_device_t *device,
+                           void (*callback)(uint8_t byte, void *context),
+                           void *user_context) {
+  uart_state_t *state = device->state;
   uint32_t primask = uart_critical_enter();
   state->rx_callback = callback;
   state->rx_context = user_context;
   uart_critical_leave(primask);
 }
 
-void uart_attach_rx_idle_impl(uart_id_t uart, void (*callback)(void *context),
-                              void *user_context) {
-  if (!uart_valid(uart))
-    return;
-  const uart_device_t *device = uart_devices[uart];
+void uart_attach_rx_idle_device(uart_device_t *device,
+                                void (*callback)(void *context),
+                                void *user_context) {
   volatile IMXRT_LPUART_t *port = device->config->port;
   uint32_t primask = uart_critical_enter();
-  device->state->rx_idle_callback = callback;
-  device->state->rx_idle_context = user_context;
+  uart_state_t *state = device->state;
+  state->rx_idle_callback = callback;
+  state->rx_idle_context = user_context;
   port->CTRL = callback ? (port->CTRL | LPUART_CTRL_ILIE)
                         : (port->CTRL & ~LPUART_CTRL_ILIE);
   uart_critical_leave(primask);
