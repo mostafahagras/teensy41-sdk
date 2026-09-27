@@ -467,12 +467,6 @@ static void endpoint0_setup(uint64_t setupdata) {
 #elif defined(SEREMU_INTERFACE)
     usb_seremu_configure();
 #endif
-#if defined(CDC2_STATUS_INTERFACE) && defined(CDC2_DATA_INTERFACE)
-    usb_serial2_configure();
-#endif
-#if defined(CDC3_STATUS_INTERFACE) && defined(CDC3_DATA_INTERFACE)
-    usb_serial3_configure();
-#endif
 #if defined(RAWHID_INTERFACE)
     usb_rawhid_configure();
 #endif

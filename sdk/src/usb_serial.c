@@ -155,7 +155,7 @@ static void rx_event(transfer_t *t) {
         rx_count[ii] = count + len;
         rx_available += len;
         rx_queue_transfer(i);
-        // TODO: trigger serialEvent
+
         return;
       }
     }
@@ -167,7 +167,7 @@ static void rx_event(transfer_t *t) {
     rx_list[head] = i;
     rx_head = head;
     rx_available += len;
-    // TODO: trigger serialEvent
+
   } else {
     // received a zero length packet
     rx_queue_transfer(i);
