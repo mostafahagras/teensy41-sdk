@@ -8,7 +8,8 @@ set(TEENSY_EXAMPLES
     temperature
     nvram
     dma
-    trng)
+    trng
+    uart)
 
 foreach(name IN LISTS TEENSY_EXAMPLES)
     teensy_target_options(example-${name}
