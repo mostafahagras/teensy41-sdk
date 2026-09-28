@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include <teensy/clock.h>
 #include <teensy/gpio.h>
 #include <teensy/imxrt.h>
 #include <teensy/pwm_pin_map.h>
@@ -116,19 +117,159 @@ static inline void pwm_invalid_resolution(uint32_t bits) { (void)bits; }
   })
 #endif
 
-/* Internals backed by pwm.c. */
-int pwm_write_impl(uint8_t pin, uint32_t value);
-int pwm_set_frequency_impl(uint8_t pin, float frequency_hz);
-uint32_t pwm_set_resolution_impl(uint32_t bits);
-int pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
-                   uint8_t muxval, const gpio_pin_t *gpio, uint32_t value);
-int pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
-                   const gpio_pin_t *gpio, uint32_t value);
-int pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
-                       uint8_t muxval, const gpio_pin_t *gpio,
-                       float frequency_hz);
-int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
-                       const gpio_pin_t *gpio, float frequency_hz);
+/* Register-level writers: inlined so that constant pins fold to
+ * direct register stores (the gpio descriptor never escapes the
+ * caller's frame).  Backed by the global duty resolution and the bus
+ * clock, both owned by pwm.c. */
+extern uint8_t pwm_resolution_bits;
+
+static inline __attribute__((always_inline)) void
+pwm_flexpwm_write(IMXRT_FLEXPWM_t *p, unsigned int submodule, uint8_t channel,
+                  uint16_t val) {
+  uint16_t mask = (uint16_t)(1u << submodule);
+  uint32_t modulo = p->SM[submodule].VAL1;
+  uint32_t cval = ((uint32_t)val * (modulo + 1)) >> pwm_resolution_bits;
+  if (cval > modulo)
+    cval = modulo;
+
+  p->MCTRL |= FLEXPWM_MCTRL_CLDOK(mask);
+  switch (channel) {
+  case 0: /* X */
+    p->SM[submodule].VAL0 = modulo - cval;
+    p->OUTEN |= FLEXPWM_OUTEN_PWMX_EN(mask);
+    break;
+  case 1: /* A */
+    p->SM[submodule].VAL3 = cval;
+    p->OUTEN |= FLEXPWM_OUTEN_PWMA_EN(mask);
+    break;
+  case 2: /* B */
+    p->SM[submodule].VAL5 = cval;
+    p->OUTEN |= FLEXPWM_OUTEN_PWMB_EN(mask);
+    break;
+  default:
+    break;
+  }
+  p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
+}
+
+static inline __attribute__((always_inline)) void
+pwm_flexpwm_frequency(IMXRT_FLEXPWM_t *p, unsigned int submodule,
+                      uint8_t channel, float frequency) {
+  (void)channel;
+  uint16_t mask = (uint16_t)(1u << submodule);
+  uint32_t olddiv = p->SM[submodule].VAL1;
+  uint32_t newdiv =
+      (uint32_t)((float)clock_bus_frequency_hz / frequency + 0.5f);
+  uint32_t prescale = 0;
+  while (newdiv > 65535 && prescale < 7) {
+    newdiv = newdiv >> 1;
+    prescale = prescale + 1;
+  }
+  if (newdiv > 65535)
+    newdiv = 65535;
+  else if (newdiv < 2)
+    newdiv = 2;
+  p->MCTRL |= FLEXPWM_MCTRL_CLDOK(mask);
+  p->SM[submodule].CTRL = FLEXPWM_SMCTRL_FULL | FLEXPWM_SMCTRL_PRSC(prescale);
+  p->SM[submodule].VAL1 = newdiv - 1;
+  p->SM[submodule].VAL0 = (p->SM[submodule].VAL0 * newdiv) / olddiv;
+  p->SM[submodule].VAL3 = (p->SM[submodule].VAL3 * newdiv) / olddiv;
+  p->SM[submodule].VAL5 = (p->SM[submodule].VAL5 * newdiv) / olddiv;
+  p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
+}
+
+static inline __attribute__((always_inline)) void
+pwm_quadtimer_write(IMXRT_TMR_t *p, unsigned int submodule, uint16_t val) {
+  uint32_t modulo = 65537 - p->CH[submodule].LOAD + p->CH[submodule].CMPLD1;
+  uint32_t high = ((uint32_t)val * (modulo - 1)) >> pwm_resolution_bits;
+  uint32_t low;
+
+  if (high >= modulo - 1)
+    high = modulo - 2;
+  low = modulo - high;
+  p->CH[submodule].LOAD = (uint16_t)(65537u - low);
+  p->CH[submodule].CMPLD1 = (uint16_t)high;
+}
+
+static inline __attribute__((always_inline)) void
+pwm_quadtimer_frequency(IMXRT_TMR_t *p, unsigned int submodule,
+                        float frequency) {
+  uint32_t newdiv =
+      (uint32_t)((float)clock_bus_frequency_hz / frequency + 0.5f);
+  uint32_t prescale = 0;
+  uint32_t oldhigh;
+  uint32_t oldlow;
+  uint32_t high;
+  uint32_t low;
+
+  while (newdiv > 65534 && prescale < 7) {
+    newdiv = newdiv >> 1;
+    prescale = prescale + 1;
+  }
+  if (newdiv > 65534)
+    newdiv = 65534;
+  else if (newdiv < 2)
+    newdiv = 2;
+  oldhigh = p->CH[submodule].CMPLD1;
+  oldlow = 65537u - p->CH[submodule].LOAD;
+  high = (oldhigh * newdiv) / (oldhigh + oldlow);
+  low = newdiv - high;
+  p->CH[submodule].LOAD = (uint16_t)(65537u - low);
+  p->CH[submodule].CMPLD1 = (uint16_t)high;
+  p->CH[submodule].CTRL = TMR_CTRL_CM(1) | TMR_CTRL_PCS(8 + prescale) |
+                          TMR_CTRL_LENGTH | TMR_CTRL_OUTMODE(6);
+}
+
+/* Device-level entry points for the pin-map switch: set the owning
+ * timer up for the duty/frequency, then route the pad to the PWM mux
+ * slot without re-doing the pad electricals. */
+static inline __attribute__((always_inline)) int
+pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+               uint8_t muxval, const gpio_pin_t *gpio, uint32_t value) {
+  if (p == NULL || gpio == NULL)
+    return -1;
+  pwm_flexpwm_write(p, submodule, channel, (uint16_t)value);
+  *gpio->direction |= gpio->mask;
+  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
+  *gpio->mux = muxval;
+  return 0;
+}
+
+static inline __attribute__((always_inline)) int
+pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
+               const gpio_pin_t *gpio, uint32_t value) {
+  if (p == NULL || gpio == NULL)
+    return -1;
+  pwm_quadtimer_write(p, submodule, (uint16_t)value);
+  *gpio->direction |= gpio->mask;
+  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
+  *gpio->mux = muxval;
+  return 0;
+}
+
+static inline __attribute__((always_inline)) int
+pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+                   uint8_t muxval, const gpio_pin_t *gpio, float frequency_hz) {
+  if (p == NULL || gpio == NULL || frequency_hz <= 0.0f)
+    return -1;
+  pwm_flexpwm_frequency(p, submodule, channel, frequency_hz);
+  *gpio->direction |= gpio->mask;
+  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
+  *gpio->mux = muxval;
+  return 0;
+}
+
+static inline __attribute__((always_inline)) int
+pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
+                   const gpio_pin_t *gpio, float frequency_hz) {
+  if (p == NULL || gpio == NULL || frequency_hz <= 0.0f)
+    return -1;
+  pwm_quadtimer_frequency(p, submodule, frequency_hz);
+  *gpio->direction |= gpio->mask;
+  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
+  *gpio->mux = muxval;
+  return 0;
+}
 
 #define TEENSY_PWM_FLEX_POINTER_0 &IMXRT_FLEXPWM1
 #define TEENSY_PWM_FLEX_POINTER_1 &IMXRT_FLEXPWM1
@@ -181,6 +322,10 @@ int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
                                 (module) & 3u, muxval, &gpio, frequency_hz);   \
     return -1;
 
+uint32_t pwm_set_resolution_impl(uint32_t bits);
+int pwm_write_impl(uint8_t pin, uint32_t value);
+int pwm_set_frequency_impl(uint8_t pin, float frequency_hz);
+
 /* =================== PUBLIC API IMPLEMENTATIONS ======================= */
 
 #if defined(__clang__)
@@ -190,8 +335,8 @@ static inline int pwm_write(uint8_t pin, uint32_t value)
         "invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54",
         "error")));
 #endif
-static inline __attribute__((always_inline)) int pwm_write(uint8_t pin,
-                                                            uint32_t value) {
+static inline
+    __attribute__((always_inline)) int pwm_write(uint8_t pin, uint32_t value) {
   gpio_pin_t gpio;
 
   TEENSY_PWM_VALIDATE_CONSTANT_PIN(pin);
@@ -206,15 +351,17 @@ static inline __attribute__((always_inline)) int pwm_write(uint8_t pin,
 
 #if defined(__clang__)
 static inline int pwm_set_frequency(uint8_t pin, float frequency_hz)
-    __attribute__((diagnose_if(
-        !TEENSY_PWM_PIN_VALID(pin),
-        "invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54",
-        "error"),
+    __attribute__((
+        diagnose_if(
+            !TEENSY_PWM_PIN_VALID(pin),
+            "invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54",
+            "error"),
         diagnose_if(frequency_hz <= 0.0f,
                     "PWM frequency must be greater than zero", "error")));
 #endif
-static inline __attribute__((always_inline)) int
-pwm_set_frequency(uint8_t pin, float frequency_hz) {
+static inline
+    __attribute__((always_inline)) int pwm_set_frequency(uint8_t pin,
+                                                         float frequency_hz) {
   gpio_pin_t gpio;
 
   TEENSY_PWM_VALIDATE_CONSTANT_PIN(pin);
@@ -234,8 +381,8 @@ static inline uint32_t pwm_set_resolution(uint32_t bits)
                                "PWM resolution is clamped to the range 1..16",
                                "warning")));
 #endif
-static inline __attribute__((always_inline)) uint32_t
-pwm_set_resolution(uint32_t bits) {
+static inline
+    __attribute__((always_inline)) uint32_t pwm_set_resolution(uint32_t bits) {
   TEENSY_PWM_VALIDATE_RESOLUTION(bits);
   return pwm_set_resolution_impl(bits);
 }
