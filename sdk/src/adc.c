@@ -57,6 +57,55 @@ static int adc_calibrate(IMXRT_ADCS_t *adc) {
   return 0;
 }
 
+/* ---- interrupt-on-complete handlers ---- */
+static adc_complete_handler_t adc_irq_handlers[2];
+static void *adc_irq_contexts[2];
+static const IMXRT_ADCS_t *const adc_irq_adcs[2] = {&IMXRT_ADC1, &IMXRT_ADC2};
+
+static void adc_irq_handler1(void) {
+  IMXRT_ADCS_t *adc = (IMXRT_ADCS_t *)adc_irq_adcs[0];
+  adc_complete_handler_t handler = adc_irq_handlers[0];
+  if ((adc->HS & ADC_HS_COCO0) != 0u && handler != NULL) {
+    uint16_t value = (uint16_t)adc->R0; /* read clears COCO0 */
+    handler(value, adc_irq_contexts[0]);
+  }
+}
+
+static void adc_irq_handler2(void) {
+  IMXRT_ADCS_t *adc = (IMXRT_ADCS_t *)adc_irq_adcs[1];
+  adc_complete_handler_t handler = adc_irq_handlers[1];
+  if ((adc->HS & ADC_HS_COCO0) != 0u && handler != NULL) {
+    uint16_t value = (uint16_t)adc->R0;
+    handler(value, adc_irq_contexts[1]);
+  }
+}
+
+/* Arms one conversion that completes through the ADC interrupt (ADC_IE
+ * set in the command register). */
+int adc_trigger_impl(uint8_t instance, uint8_t channel) {
+  IMXRT_ADCS_t *adc;
+
+  if (instance < 1u || instance > 2u || channel > 15u || !adc_initialized)
+    return -1;
+  adc = (IMXRT_ADCS_t *)adc_irq_adcs[instance - 1u];
+  adc->HC0 = ADC_HC_AIEN | ADC_HC_ADCH(channel);
+  return 0;
+}
+
+int adc_attach_irq_impl(uint8_t instance,
+                        void (*handler)(uint16_t value, void *context),
+                        void *context) {
+  if (instance < 1u || instance > 2u)
+    return -1;
+  adc_irq_handlers[instance - 1u] = handler;
+  adc_irq_contexts[instance - 1u] = context;
+  attachInterruptVector(instance == 1u ? IRQ_ADC1 : IRQ_ADC2,
+                        instance == 1u ? adc_irq_handler1 : adc_irq_handler2);
+  NVIC_SET_PRIORITY(instance == 1u ? IRQ_ADC1 : IRQ_ADC2, 128);
+  NVIC_ENABLE_IRQ(instance == 1u ? IRQ_ADC1 : IRQ_ADC2);
+  return 0;
+}
+
 int adc_init(void) {
   CCM_CCGR1 |= CCM_CCGR1_ADC1(CCM_CCGR_ON) | CCM_CCGR1_ADC2(CCM_CCGR_ON);
   adc_apply_config(&IMXRT_ADC1);

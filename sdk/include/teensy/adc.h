@@ -55,6 +55,8 @@ adc_set_resolution(uint32_t bits);
 static inline __attribute__((always_inline)) int
 adc_set_averaging(uint32_t samples);
 
+typedef void (*adc_complete_handler_t)(uint16_t value, void *context);
+
 /* ============================ INTERNAL API ============================ */
 /* @internal */
 
@@ -127,6 +129,10 @@ extern void adc_invalid_averaging(void)
 /* Internals backed by adc.c. */
 int adc_set_resolution_impl(uint32_t bits);
 int adc_set_averaging_impl(uint32_t samples);
+int adc_attach_irq_impl(uint8_t instance,
+                        void (*handler)(uint16_t value, void *context),
+                        void *context);
+int adc_trigger_impl(uint8_t instance, uint8_t channel);
 
 /* Configures an analog pad: mux to ALT0 and clear digital keeper/bias.
  * Runs before every conversion. */
