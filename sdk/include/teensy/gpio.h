@@ -173,6 +173,49 @@ extern void gpio_invalid_constant_pin(void) __attribute__((
   })
 #endif
 
+/* Compile-time GPIO mode and drive-strength validation: for out-of-range
+ * constants the same class of early-error diagnostics applies as for the
+ * pin and bank values. */
+#if defined(__clang__)
+static inline void gpio_validate_mode(gpio_mode_t mode) __attribute__((
+    diagnose_if(mode > GPIO_OUTPUT_OPEN_DRAIN,
+                "invalid GPIO mode; expected GPIO_INPUT, GPIO_OUTPUT, "
+                "GPIO_INPUT_PULLUP, GPIO_INPUT_PULLDOWN or "
+                "GPIO_OUTPUT_OPEN_DRAIN",
+                "error")));
+static inline void gpio_validate_mode(gpio_mode_t mode) { (void)mode; }
+static inline void gpio_validate_strength(uint8_t strength) __attribute__((
+    diagnose_if(strength > 7,
+                "invalid GPIO drive strength; expected 0 through 7", "error")));
+static inline void gpio_validate_strength(uint8_t strength) { (void)strength; }
+#else
+extern void gpio_invalid_constant_mode(void)
+    __attribute__((error("invalid GPIO mode; expected GPIO_INPUT through "
+                         "GPIO_OUTPUT_OPEN_DRAIN")));
+extern void gpio_invalid_constant_strength(void)
+    __attribute__((error("invalid GPIO drive strength; expected 0 through 7")));
+#endif
+
+#if defined(__clang__)
+#define TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode)                               \
+  gpio_validate_mode((gpio_mode_t)(mode))
+#define TEENSY_GPIO_VALIDATE_CONSTANT_STRENGTH(strength)                       \
+  gpio_validate_strength((uint8_t)(strength))
+#else
+#define TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode)                               \
+  ({                                                                           \
+    if (__builtin_constant_p(mode) && !((mode) <= GPIO_OUTPUT_OPEN_DRAIN))     \
+      gpio_invalid_constant_mode();                                            \
+    (void)0;                                                                   \
+  })
+#define TEENSY_GPIO_VALIDATE_CONSTANT_STRENGTH(strength)                       \
+  ({                                                                           \
+    if (__builtin_constant_p(strength) && !((strength) <= 7))                  \
+      gpio_invalid_constant_strength();                                        \
+    (void)0;                                                                   \
+  })
+#endif
+
 /* Fills the OUT var @p d with the pin's descriptor.  @p d must be a
  * local `gpio_pin_t` declared before this expansion; @p on_invalid is
  * the return expression used when the pin is out of range. */
@@ -282,6 +325,7 @@ gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
 static inline __attribute__((always_inline)) int
 gpio_configure(uint8_t pin, gpio_mode_t mode) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
+  TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode);
   gpio_pin_t d;
   TEENSY_GPIO_PIN_RESOLVE(d, pin, -1);
   return gpio_configure_pin(&d, mode);
@@ -318,6 +362,7 @@ static inline __attribute__((always_inline)) int
 gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
                       gpio_interrupt_handler_t handler, void *context) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
+  TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode);
   gpio_pin_t d;
   TEENSY_GPIO_PIN_RESOLVE(d, pin, -1);
   return gpio_attach_interrupt_pin(&d, mode, handler, context);
@@ -422,11 +467,15 @@ gpio_toggle_mask(gpio_port_t port, uint32_t mask) {
 static inline int gpio_set_drive_strength(uint8_t pin, uint8_t strength)
     __attribute__((diagnose_if(
         pin >= TEENSY_GPIO_PIN_COUNT,
-        "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
+        "invalid Teensy GPIO pin; expected a value from 0 to 54", "error"),
+        diagnose_if(strength > 7,
+                    "invalid GPIO drive strength; expected 0 through 7",
+                    "error")));
 #endif
 static inline __attribute__((always_inline)) int
 gpio_set_drive_strength(uint8_t pin, uint8_t strength) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
+  TEENSY_GPIO_VALIDATE_CONSTANT_STRENGTH(strength);
   if (strength > 7)
     return -1;
   gpio_pin_t d;
