@@ -241,12 +241,6 @@ uart_device_t uart_device1 = {&uart_config1, &uart_state1};
 uart_device_t uart_device7 = {&uart_config7, &uart_state7};
 uart_device_t uart_device5 = {&uart_config5, &uart_state5};
 
-static uart_device_t *const uart_devices[UART_COUNT] = {
-    [UART_ID_1] = &uart_device6, [UART_ID_2] = &uart_device3,
-    [UART_ID_3] = &uart_device4, [UART_ID_4] = &uart_device2,
-    [UART_ID_5] = &uart_device8, [UART_ID_6] = &uart_device1,
-    [UART_ID_7] = &uart_device7, [UART_ID_8] = &uart_device5};
-
 static void uart_irq_handler6(void) { uart_irq_handler(&uart_device6); }
 static void uart_irq_handler3(void) { uart_irq_handler(&uart_device3); }
 static void uart_irq_handler4(void) { uart_irq_handler(&uart_device4); }
@@ -255,10 +249,6 @@ static void uart_irq_handler8(void) { uart_irq_handler(&uart_device8); }
 static void uart_irq_handler1(void) { uart_irq_handler(&uart_device1); }
 static void uart_irq_handler7(void) { uart_irq_handler(&uart_device7); }
 static void uart_irq_handler5(void) { uart_irq_handler(&uart_device5); }
-
-static bool uart_valid(uart_id_t uart) {
-  return uart >= UART_ID_1 && uart <= UART_ID_8;
-}
 
 static uint32_t uart_critical_enter(void) {
   uint32_t primask;
