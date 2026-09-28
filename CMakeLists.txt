@@ -49,6 +49,11 @@ set(TEENSY_LINKER_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/sdk/linker/imxrt1062_t41.l
 
 add_subdirectory(sdk)
 
+# Opt-in link-time optimization: -flto on every compile unit - the SDK
+# library included - and at the link.  OFF by default; both reference
+# SDKs (pico, Teensyduino) also build without LTO.
+option(TEENSY_LTO "Enable link-time optimization (cross-module inlining)" OFF)
+
 # Compile/link setup shared by the main application target and every
 # example; callers append their own -Wl,-Map when they want one.
 function(teensy_target_options target)
@@ -57,6 +62,11 @@ function(teensy_target_options target)
     target_link_libraries(${target} PRIVATE teensy_sdk)
 
     target_compile_definitions(${target} PRIVATE ${TEENSY_DEFINITIONS})
+    set(TEENSY_LTO_FLAGS "")
+    if(TEENSY_LTO)
+        set(TEENSY_LTO_FLAGS -ffat-lto-objects)
+        set(TEENSY_LTO_LINK_FLAGS -flto -flto-partition=none)
+    endif()
     target_compile_options(${target} PRIVATE
         ${TEENSY_CPU_FLAGS}
         ${TEENSY_SYSROOT_INCLUDE_FLAG}
@@ -65,16 +75,19 @@ function(teensy_target_options target)
         -Wextra
         -ffunction-sections
         -fdata-sections
-        -Os)
+        -Os
+        ${TEENSY_LTO_FLAGS})
 
     target_link_options(${target} PRIVATE
         ${TEENSY_CPU_FLAGS}
+        ${TEENSY_LTO_LINK_FLAGS}
         -nostdlib
         -nostartfiles
         -nodefaultlibs
         "-T${TEENSY_LINKER_SCRIPT}"
         -Wl,--gc-sections
         -Wl,--relax
+        ${TEENSY_LTO_FLAGS}
         # One RWX load segment is intentional: the ITCM image is loaded from
         # flash and copied to RAM at startup, so text/code/data share a
         # segment (same layout as Teensyduino binaries).  Silence the

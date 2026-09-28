@@ -31,7 +31,12 @@ target_include_directories(teensy_sdk
         "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 target_compile_definitions(teensy_sdk PRIVATE ${TEENSY_DEFINITIONS} USB_SERIAL)
-target_compile_options(teensy_sdk PRIVATE
+set(TEENSY_SDK_LTO_FLAGS "")
+if(TEENSY_LTO)
+    list(APPEND TEENSY_SDK_LTO_FLAGS -flto)
+endif()
+target_compile_options(teensy_sdk PRIVATE ${TEENSY_SDK_LTO_FLAGS}
+
     ${TEENSY_CPU_FLAGS}
     ${TEENSY_SYSROOT_INCLUDE_FLAG}
     ${TEENSY_GCC_INCLUDE_FLAG}
