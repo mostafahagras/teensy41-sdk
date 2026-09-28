@@ -132,6 +132,7 @@ int adc_set_averaging_impl(uint32_t samples);
 int adc_attach_irq_impl(uint8_t instance,
                         void (*handler)(uint16_t value, void *context),
                         void *context);
+int adc_detach_irq_impl(uint8_t instance);
 int adc_trigger_impl(uint8_t instance, uint8_t channel);
 
 /* Configures an analog pad: mux to ALT0 and clear digital keeper/bias.
@@ -228,9 +229,9 @@ static inline
 
 /** Registers the completion handler for one ADC's adc_trigger()-started
  * conversions.  The handler runs in interrupt context and receives the
- * raw conversion result; it must be quick (no blocking).  Pass NULL to
- * detach.  One ADC must not use the interrupt and blocking paths at the
- * same time - the handler consumes the conversion result.
+ * raw conversion result; it must be quick (no blocking).  One ADC must
+ * not use the interrupt and blocking paths at the same time - the
+ * handler consumes the conversion result.
  * @param instance 1 (ADC1) or 2 (ADC2).
  * @param handler Handler, receives the raw value and @p context.
  * @param context Passed through to @p handler.
@@ -239,6 +240,13 @@ static inline
 static inline __attribute__((always_inline)) int
 adc_attach_irq(uint8_t instance, void (*handler)(uint16_t value, void *context),
                void *context);
+
+/** Unregisters and disarms one ADC's completion interrupt.
+ * @param instance 1 (ADC1) or 2 (ADC2).
+ * @return 0 on success, or -1 for an invalid instance.
+ */
+static inline __attribute__((always_inline)) int
+adc_detach_irq(uint8_t instance);
 
 /** Starts one conversion on an initialized ADC; its result is delivered
  * by the handler registered with adc_attach_irq() instead of being
@@ -261,9 +269,9 @@ static inline int adc_attach_irq(uint8_t instance,
                     "invalid ADC instance; expected 1 (ADC1) or 2 (ADC2)",
                     "error"),
         diagnose_if(handler == 0,
-                    "adc_attach_irq with a NULL handler detaches the "
-                    "interrupt; use it deliberately or not at all",
-                    "warning")));
+                    "NULL handler: use adc_detach_irq to detach an ADC "
+                    "interrupt",
+                    "error")));
 #endif
 static inline __attribute__((always_inline)) int
 adc_attach_irq(uint8_t instance, void (*handler)(uint16_t value, void *context),
@@ -274,12 +282,23 @@ adc_attach_irq(uint8_t instance, void (*handler)(uint16_t value, void *context),
 }
 
 #if defined(__clang__)
+static inline int adc_detach_irq(uint8_t instance) __attribute__((diagnose_if(
+    instance != 1u && instance != 2u,
+    "invalid ADC instance; expected 1 (ADC1) or 2 (ADC2)", "error")));
+#endif
+static inline
+    __attribute__((always_inline)) int adc_detach_irq(uint8_t instance) {
+  if (instance != 1u && instance != 2u)
+    return -1;
+  return adc_detach_irq_impl(instance);
+}
+
+#if defined(__clang__)
 static inline int adc_trigger(uint8_t instance, uint8_t channel) __attribute__((
     diagnose_if(instance != 1u && instance != 2u,
                 "invalid ADC instance; expected 1 (ADC1) or 2 (ADC2)", "error"),
     diagnose_if(!TEENSY_ADC_PAIR_VALID(instance, channel),
-                "that ADC has no such routed channel on this board",
-                "error")));
+                "that ADC has no such routed channel on this board", "error")));
 #endif
 static inline __attribute__((always_inline)) int adc_trigger(uint8_t instance,
                                                              uint8_t channel) {
