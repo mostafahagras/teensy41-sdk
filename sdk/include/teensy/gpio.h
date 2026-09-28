@@ -451,7 +451,7 @@ static inline int gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
         diagnose_if(handler == 0,
                     "gpio_attach_interrupt with a NULL handler always "
                     "fails; use gpio_detach_interrupt instead",
-                    "warning")));
+                    "error")));
 #endif
 static inline __attribute__((always_inline)) int
 gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
