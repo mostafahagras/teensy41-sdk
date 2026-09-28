@@ -175,12 +175,12 @@ int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, float frequency_hz);
 #define TEENSY_PWM_WRITE_CASE(number, type, module, channel, muxval)           \
   case number:                                                                 \
     if ((type) == 1) {                                                         \
-      pwm_pin_output(&gpio, muxval);                                           \
+      *gpio.mux = muxval; /* re-affirm routing; pad/direction set once */      \
       return pwm_write_flex(TEENSY_PWM_FLEX_POINTER_##module, (module) & 3u,   \
                             channel, (uint16_t)value);                         \
     }                                                                          \
     if ((type) == 2) {                                                         \
-      pwm_pin_output(&gpio, muxval);                                           \
+      *gpio.mux = muxval;                                                      \
       return pwm_write_quad(TEENSY_PWM_QUAD_POINTER_##module, (module) & 3u,   \
                             (uint16_t)value);                                  \
     }                                                                          \
