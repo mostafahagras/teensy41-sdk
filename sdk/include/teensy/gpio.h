@@ -66,9 +66,6 @@ typedef void (*gpio_interrupt_handler_t)(void *context);
 
 /* ============================== PUBLIC API ============================ */
 
-/** Initializes GPIO interrupt handling. */
-void gpio_init(void);
-
 /** Configures a Teensy pin for the specified GPIO mode.
  * @param pin Teensy pin number, 0..54.
  * @param mode One of the gpio_mode_t values.

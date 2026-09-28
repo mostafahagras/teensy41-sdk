@@ -63,8 +63,6 @@ static void gpio_critical_leave(uint32_t primask) {
     __enable_irq();
 }
 
-void gpio_init(void) { attachInterruptVector(IRQ_GPIO6789, gpio_irq_handler); }
-
 uint8_t gpio_configured_mask[4];
 
 __attribute__((section(".fastrun"))) void gpio_irq_handler(void) {
