@@ -63,8 +63,6 @@ static void gpio_critical_leave(uint32_t primask) {
     __enable_irq();
 }
 
-uint8_t gpio_configured_mask[4];
-
 __attribute__((section(".fastrun"))) void gpio_irq_handler(void) {
   uint8_t port;
 
@@ -97,12 +95,8 @@ int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
   if (pin == NULL || handler == NULL || mode > GPIO_INTERRUPT_HIGH) {
     return -1;
   }
-  if ((gpio_configured_mask[(uint8_t)(pin->port)] &
-       (uint8_t)(1u << pin->bit)) == 0) {
-    return -1; /* attach only works on pins gpio_configure() has set up */
-  }
-
   registers = &gpio_interrupt_ports[pin->port];
+  *pin->mux = 5u | 0x10u; /* route the pin to GPIO; pad config untouched */
   primask = gpio_critical_enter();
   *registers->interrupt_mask &= ~pin->mask;
   gpio_handlers[pin->port][pin->bit] = handler;
@@ -162,6 +156,7 @@ int gpio_detach_interrupt_pin(const gpio_pin_t *pin) {
   if (pin == NULL)
     return -1;
   registers = &gpio_interrupt_ports[pin->port];
+  *pin->mux = 5u | 0x10u; /* route the pin to GPIO; pad config untouched */
   primask = gpio_critical_enter();
   *registers->interrupt_mask &= ~pin->mask;
   gpio_handlers[pin->port][pin->bit] = NULL;

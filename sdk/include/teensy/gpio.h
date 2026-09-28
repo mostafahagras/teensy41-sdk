@@ -233,11 +233,6 @@ extern void gpio_invalid_constant_port(void) __attribute__((
   })
 #endif
 
-/* One bit per bank pin: set by gpio_configure_pin() on success and
- * required by the interrupt attach path (a pin must be configured
- * before an interrupt can attach to it). */
-extern uint8_t gpio_configured_mask[4];
-
 const gpio_pin_t *gpio_pin_runtime(uint8_t pin);
 
 int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
@@ -271,7 +266,6 @@ gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
 
   if (pin == NULL || mode > GPIO_OUTPUT_OPEN_DRAIN)
     return -1;
-  gpio_configured_mask[(uint8_t)(pin->port)] |= (uint8_t)(1u << pin->bit);
   pad = gpio_pad_for_mode(mode);
   if (mode == GPIO_OUTPUT || mode == GPIO_OUTPUT_OPEN_DRAIN) {
     *pin->direction |= pin->mask;
