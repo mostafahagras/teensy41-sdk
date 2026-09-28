@@ -47,14 +47,12 @@ const gpio_pin_t *gpio_pin_runtime(uint8_t pin) { return gpio_pin(pin); }
 
 void gpio_init(void) { attachInterruptVector(IRQ_GPIO6789, gpio_irq_handler); }
 
-int gpio_configure(uint8_t pin_number, gpio_mode_t mode) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
+int gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
   uint32_t pad;
 
   if (pin == NULL || mode > GPIO_OUTPUT_OPEN_DRAIN)
     return -1;
   pad = gpio_pad_for_mode(mode);
-
   if (mode == GPIO_OUTPUT || mode == GPIO_OUTPUT_OPEN_DRAIN) {
     *pin->direction |= pin->mask;
   } else {
@@ -62,37 +60,6 @@ int gpio_configure(uint8_t pin_number, gpio_mode_t mode) {
   }
   *pin->pad = pad;
   *pin->mux = 5u | 0x10u;
-  return 0;
-}
-
-int gpio_write(uint8_t pin_number, bool high) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
-
-  if (pin == NULL)
-    return -1;
-  if (high) {
-    *pin->set = pin->mask;
-  } else {
-    *pin->clear = pin->mask;
-  }
-  return 0;
-}
-
-int gpio_read(uint8_t pin_number, bool *high) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
-
-  if (pin == NULL || high == NULL)
-    return -1;
-  *high = (*pin->input & pin->mask) != 0;
-  return 0;
-}
-
-int gpio_toggle(uint8_t pin_number) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
-
-  if (pin == NULL)
-    return -1;
-  *pin->toggle = pin->mask;
   return 0;
 }
 
@@ -183,12 +150,6 @@ enable_interrupt:
   return 0;
 }
 
-int gpio_attach_interrupt(uint8_t pin_number, gpio_interrupt_mode_t mode,
-                          gpio_interrupt_handler_t handler, void *context) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
-  return gpio_attach_interrupt_pin(pin, mode, handler, context);
-}
-
 int gpio_detach_interrupt_pin(const gpio_pin_t *pin) {
   const gpio_interrupt_port_t *registers;
 
@@ -201,9 +162,4 @@ int gpio_detach_interrupt_pin(const gpio_pin_t *pin) {
   gpio_handler_contexts[pin->port][pin->bit] = NULL;
   __enable_irq();
   return 0;
-}
-
-int gpio_detach_interrupt(uint8_t pin_number) {
-  const gpio_pin_t *pin = gpio_pin(pin_number);
-  return gpio_detach_interrupt_pin(pin);
 }
