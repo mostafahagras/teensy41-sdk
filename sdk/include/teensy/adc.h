@@ -155,6 +155,17 @@ adc_read_channel(IMXRT_ADCS_t *adc, uint8_t channel) {
   return (int)adc->R0;
 }
 
+/* Valid (ADC, channel) pairs, taken from the pin map: ADC1 carries
+ * channels 0,1,2,5..15; ADC2 only 1..4 (A12..A15).  Sampling an
+ * unpopulated channel yields a floating result, so it is a
+ * compile-time error for constant arguments. */
+#define ADC1_CHANNELS_MASK 0xFFE7u /* 0,1,2,5,6,7,8,9,10,11,12,13,14,15 */
+#define ADC2_CHANNELS_MASK 0x001Eu /* 1,2,3,4                        */
+#define TEENSY_ADC_PAIR_VALID(instance, channel)                               \
+  ((channel) <= 15u &&                                                         \
+   (((instance) == 1u ? ADC1_CHANNELS_MASK : ADC2_CHANNELS_MASK) &             \
+    (uint32_t)(1u << (channel))) != 0u)
+
 /* Fills @p instance/@p channel for an analog-capable pin.
  * @p invalid is returned through the enclosing function when the pin
  * has no analog hardware. */
@@ -266,12 +277,14 @@ adc_attach_irq(uint8_t instance, void (*handler)(uint16_t value, void *context),
 static inline int adc_trigger(uint8_t instance, uint8_t channel) __attribute__((
     diagnose_if(instance != 1u && instance != 2u,
                 "invalid ADC instance; expected 1 (ADC1) or 2 (ADC2)", "error"),
-    diagnose_if(channel > 15u, "invalid ADC channel; expected 0 through 15",
+    diagnose_if(!TEENSY_ADC_PAIR_VALID(instance, channel),
+                "that ADC has no such routed channel on this board",
                 "error")));
 #endif
 static inline __attribute__((always_inline)) int adc_trigger(uint8_t instance,
                                                              uint8_t channel) {
-  if (instance != 1u && instance != 2u)
+  if ((instance != 1u && instance != 2u) ||
+      !TEENSY_ADC_PAIR_VALID(instance, channel))
     return -1;
   return adc_trigger_impl(instance, channel);
 }

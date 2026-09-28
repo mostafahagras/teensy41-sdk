@@ -87,6 +87,10 @@ int adc_trigger_impl(uint8_t instance, uint8_t channel) {
 
   if (instance < 1u || instance > 2u || channel > 15u || !adc_initialized)
     return -1;
+  /* unpopulated channels float: reject the pair at runtime too. */
+  if ((((instance == 1u) ? ADC1_CHANNELS_MASK : ADC2_CHANNELS_MASK) &
+       (1u << channel)) == 0u)
+    return -1;
   adc = (IMXRT_ADCS_t *)adc_irq_adcs[instance - 1u];
   adc->HC0 = ADC_HC_AIEN | ADC_HC_ADCH(channel);
   return 0;
@@ -99,6 +103,11 @@ int adc_attach_irq_impl(uint8_t instance,
     return -1;
   adc_irq_handlers[instance - 1u] = handler;
   adc_irq_contexts[instance - 1u] = context;
+  if (handler == NULL) {
+    /* detach: disarm the interrupt line as well */
+    NVIC_DISABLE_IRQ(instance == 1u ? IRQ_ADC1 : IRQ_ADC2);
+    return 0;
+  }
   attachInterruptVector(instance == 1u ? IRQ_ADC1 : IRQ_ADC2,
                         instance == 1u ? adc_irq_handler1 : adc_irq_handler2);
   NVIC_SET_PRIORITY(instance == 1u ? IRQ_ADC1 : IRQ_ADC2, 128);
