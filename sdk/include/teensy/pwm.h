@@ -117,159 +117,16 @@ static inline void pwm_invalid_resolution(uint32_t bits) { (void)bits; }
   })
 #endif
 
-/* Register-level writers: inlined so that constant pins fold to
- * direct register stores (the gpio descriptor never escapes the
- * caller's frame).  Backed by the global duty resolution and the bus
- * clock, both owned by pwm.c. */
-extern uint8_t pwm_resolution_bits;
-
-static inline __attribute__((always_inline)) void
-pwm_flexpwm_write(IMXRT_FLEXPWM_t *p, unsigned int submodule, uint8_t channel,
-                  uint16_t val) {
-  uint16_t mask = (uint16_t)(1u << submodule);
-  uint32_t modulo = p->SM[submodule].VAL1;
-  uint32_t cval = ((uint32_t)val * (modulo + 1)) >> pwm_resolution_bits;
-  if (cval > modulo)
-    cval = modulo;
-
-  p->MCTRL |= FLEXPWM_MCTRL_CLDOK(mask);
-  switch (channel) {
-  case 0: /* X */
-    p->SM[submodule].VAL0 = modulo - cval;
-    p->OUTEN |= FLEXPWM_OUTEN_PWMX_EN(mask);
-    break;
-  case 1: /* A */
-    p->SM[submodule].VAL3 = cval;
-    p->OUTEN |= FLEXPWM_OUTEN_PWMA_EN(mask);
-    break;
-  case 2: /* B */
-    p->SM[submodule].VAL5 = cval;
-    p->OUTEN |= FLEXPWM_OUTEN_PWMB_EN(mask);
-    break;
-  default:
-    break;
-  }
-  p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
-}
-
-static inline __attribute__((always_inline)) void
-pwm_flexpwm_frequency(IMXRT_FLEXPWM_t *p, unsigned int submodule,
-                      uint8_t channel, float frequency) {
-  (void)channel;
-  uint16_t mask = (uint16_t)(1u << submodule);
-  uint32_t olddiv = p->SM[submodule].VAL1;
-  uint32_t newdiv =
-      (uint32_t)((float)clock_bus_frequency_hz / frequency + 0.5f);
-  uint32_t prescale = 0;
-  while (newdiv > 65535 && prescale < 7) {
-    newdiv = newdiv >> 1;
-    prescale = prescale + 1;
-  }
-  if (newdiv > 65535)
-    newdiv = 65535;
-  else if (newdiv < 2)
-    newdiv = 2;
-  p->MCTRL |= FLEXPWM_MCTRL_CLDOK(mask);
-  p->SM[submodule].CTRL = FLEXPWM_SMCTRL_FULL | FLEXPWM_SMCTRL_PRSC(prescale);
-  p->SM[submodule].VAL1 = newdiv - 1;
-  p->SM[submodule].VAL0 = (p->SM[submodule].VAL0 * newdiv) / olddiv;
-  p->SM[submodule].VAL3 = (p->SM[submodule].VAL3 * newdiv) / olddiv;
-  p->SM[submodule].VAL5 = (p->SM[submodule].VAL5 * newdiv) / olddiv;
-  p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
-}
-
-static inline __attribute__((always_inline)) void
-pwm_quadtimer_write(IMXRT_TMR_t *p, unsigned int submodule, uint16_t val) {
-  uint32_t modulo = 65537 - p->CH[submodule].LOAD + p->CH[submodule].CMPLD1;
-  uint32_t high = ((uint32_t)val * (modulo - 1)) >> pwm_resolution_bits;
-  uint32_t low;
-
-  if (high >= modulo - 1)
-    high = modulo - 2;
-  low = modulo - high;
-  p->CH[submodule].LOAD = (uint16_t)(65537u - low);
-  p->CH[submodule].CMPLD1 = (uint16_t)high;
-}
-
-static inline __attribute__((always_inline)) void
-pwm_quadtimer_frequency(IMXRT_TMR_t *p, unsigned int submodule,
-                        float frequency) {
-  uint32_t newdiv =
-      (uint32_t)((float)clock_bus_frequency_hz / frequency + 0.5f);
-  uint32_t prescale = 0;
-  uint32_t oldhigh;
-  uint32_t oldlow;
-  uint32_t high;
-  uint32_t low;
-
-  while (newdiv > 65534 && prescale < 7) {
-    newdiv = newdiv >> 1;
-    prescale = prescale + 1;
-  }
-  if (newdiv > 65534)
-    newdiv = 65534;
-  else if (newdiv < 2)
-    newdiv = 2;
-  oldhigh = p->CH[submodule].CMPLD1;
-  oldlow = 65537u - p->CH[submodule].LOAD;
-  high = (oldhigh * newdiv) / (oldhigh + oldlow);
-  low = newdiv - high;
-  p->CH[submodule].LOAD = (uint16_t)(65537u - low);
-  p->CH[submodule].CMPLD1 = (uint16_t)high;
-  p->CH[submodule].CTRL = TMR_CTRL_CM(1) | TMR_CTRL_PCS(8 + prescale) |
-                          TMR_CTRL_LENGTH | TMR_CTRL_OUTMODE(6);
-}
-
-/* Device-level entry points for the pin-map switch: set the owning
- * timer up for the duty/frequency, then route the pad to the PWM mux
- * slot without re-doing the pad electricals. */
-static inline __attribute__((always_inline)) int
-pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
-               uint8_t muxval, const gpio_pin_t *gpio, uint32_t value) {
-  if (p == NULL || gpio == NULL)
-    return -1;
-  pwm_flexpwm_write(p, submodule, channel, (uint16_t)value);
-  *gpio->direction |= gpio->mask;
-  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
-  *gpio->mux = muxval;
-  return 0;
-}
-
-static inline __attribute__((always_inline)) int
-pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
-               const gpio_pin_t *gpio, uint32_t value) {
-  if (p == NULL || gpio == NULL)
-    return -1;
-  pwm_quadtimer_write(p, submodule, (uint16_t)value);
-  *gpio->direction |= gpio->mask;
-  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
-  *gpio->mux = muxval;
-  return 0;
-}
-
-static inline __attribute__((always_inline)) int
-pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
-                   uint8_t muxval, const gpio_pin_t *gpio, float frequency_hz) {
-  if (p == NULL || gpio == NULL || frequency_hz <= 0.0f)
-    return -1;
-  pwm_flexpwm_frequency(p, submodule, channel, frequency_hz);
-  *gpio->direction |= gpio->mask;
-  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
-  *gpio->mux = muxval;
-  return 0;
-}
-
-static inline __attribute__((always_inline)) int
-pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
-                   const gpio_pin_t *gpio, float frequency_hz) {
-  if (p == NULL || gpio == NULL || frequency_hz <= 0.0f)
-    return -1;
-  pwm_quadtimer_frequency(p, submodule, frequency_hz);
-  *gpio->direction |= gpio->mask;
-  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
-  *gpio->mux = muxval;
-  return 0;
-}
+/* Register-block math stays in pwm.c (it reads live hardware state --
+ * VAL1/LOAD -- plus the global duty resolution); the pin configuration
+ * happens inline here so a constant pin costs only scalar stores +
+ * one call with folded arguments. */
+int pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+                   uint16_t value);
+int pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint16_t value);
+int pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+                       float frequency_hz);
+int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, float frequency_hz);
 
 #define TEENSY_PWM_FLEX_POINTER_0 &IMXRT_FLEXPWM1
 #define TEENSY_PWM_FLEX_POINTER_1 &IMXRT_FLEXPWM1
@@ -303,28 +160,44 @@ pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
 
 #define TEENSY_PWM_WRITE_CASE(number, type, module, channel, muxval)           \
   case number:                                                                 \
-    if (type == 1)                                                             \
+    if ((type) == 1) {                                                         \
+      pwm_pin_output(&gpio, muxval);                                           \
       return pwm_write_flex(TEENSY_PWM_FLEX_POINTER_##module, (module) & 3u,   \
-                            channel, muxval, &gpio, value);                    \
-    if (type == 2)                                                             \
+                            channel, (uint16_t)value);                         \
+    }                                                                          \
+    if ((type) == 2) {                                                         \
+      pwm_pin_output(&gpio, muxval);                                           \
       return pwm_write_quad(TEENSY_PWM_QUAD_POINTER_##module, (module) & 3u,   \
-                            muxval, &gpio, value);                             \
+                            (uint16_t)value);                                  \
+    }                                                                          \
     return -1;
 
 #define TEENSY_PWM_FREQUENCY_CASE(number, type, module, channel, muxval)       \
   case number:                                                                 \
-    if (type == 1)                                                             \
+    if ((type) == 1) {                                                         \
+      pwm_pin_output(&gpio, muxval);                                           \
       return pwm_frequency_flex(TEENSY_PWM_FLEX_POINTER_##module,              \
-                                (module) & 3u, channel, muxval, &gpio,         \
-                                frequency_hz);                                 \
-    if (type == 2)                                                             \
+                                (module) & 3u, channel, frequency_hz);         \
+    }                                                                          \
+    if ((type) == 2) {                                                         \
+      pwm_pin_output(&gpio, muxval);                                           \
       return pwm_frequency_quad(TEENSY_PWM_QUAD_POINTER_##module,              \
-                                (module) & 3u, muxval, &gpio, frequency_hz);   \
+                                (module) & 3u, frequency_hz);                  \
+    }                                                                          \
     return -1;
 
 uint32_t pwm_set_resolution_impl(uint32_t bits);
 int pwm_write_impl(uint8_t pin, uint32_t value);
 int pwm_set_frequency_impl(uint8_t pin, float frequency_hz);
+
+/* Routes a pin to its PWM function: direction=output, pad electricals
+ * = plain output drive, mux = the pin's PWM alternate function. */
+static inline __attribute__((always_inline)) void
+pwm_pin_output(gpio_pin_t *gpio, uint8_t muxval) {
+  *gpio->direction |= gpio->mask;
+  *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
+  *gpio->mux = muxval;
+}
 
 /* =================== PUBLIC API IMPLEMENTATIONS ======================= */
 

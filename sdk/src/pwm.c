@@ -104,8 +104,8 @@ static int pwm_write_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
     default:
       flexpwm = &IMXRT_FLEXPWM4;
     }
-    return pwm_write_flex(flexpwm, info->module & 3u, info->channel,
-                          info->muxval, gpio, val);
+    (void)gpio;
+    return pwm_write_flex(flexpwm, info->module & 3u, info->channel, val);
   }
   if (info->type == 2) {
     IMXRT_TMR_t *qtimer;
@@ -122,9 +122,110 @@ static int pwm_write_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
     default:
       qtimer = &IMXRT_TMR4;
     }
-    return pwm_write_quad(qtimer, info->module & 3u, info->muxval, gpio, val);
+    (void)gpio;
+    return pwm_write_quad(qtimer, info->module & 3u, val);
   }
   return -1;
+}
+
+/* Register-block math: reads live hardware state (VAL1/LOAD) and the
+ * global duty resolution; one shared copy serves both the typed (const
+ * pin) path and the runtime fallback. */
+int pwm_write_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+                   uint16_t value) {
+  uint16_t mask = (uint16_t)(1u << submodule);
+  uint32_t modulo = p->SM[submodule].VAL1;
+  uint32_t cval = ((uint32_t)value * (modulo + 1u)) >> pwm_resolution_bits;
+
+  if (cval > modulo)
+    cval = modulo;
+  p->MCTRL |= FLEXPWM_MCTRL_CLDOK(mask);
+  switch (channel) {
+  case 0:
+    p->SM[submodule].VAL0 = modulo - cval;
+    p->OUTEN |= FLEXPWM_OUTEN_PWMX_EN(mask);
+    break;
+  case 1:
+    p->SM[submodule].VAL3 = cval;
+    p->OUTEN |= FLEXPWM_OUTEN_PWMA_EN(mask);
+    break;
+  case 2:
+    p->SM[submodule].VAL5 = cval;
+    p->OUTEN |= FLEXPWM_OUTEN_PWMB_EN(mask);
+    break;
+  default:
+    return -1;
+  }
+  p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
+  return 0;
+}
+
+int pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint16_t value) {
+  uint32_t modulo = 65537u - p->CH[submodule].LOAD + p->CH[submodule].CMPLD1;
+  uint32_t high = ((uint32_t)value * (modulo - 1u)) >> pwm_resolution_bits;
+  uint32_t low;
+
+  if (high >= modulo - 1u)
+    high = modulo - 2u;
+  low = modulo - high;
+  p->CH[submodule].LOAD = (uint16_t)(65537u - low);
+  p->CH[submodule].CMPLD1 = (uint16_t)high;
+  return 0;
+}
+
+int pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
+                       float frequency_hz) {
+  uint16_t mask = (uint16_t)(1u << submodule);
+  uint32_t olddiv = p->SM[submodule].VAL1;
+  uint32_t newdiv =
+      (uint32_t)((float)clock_bus_frequency_hz / frequency_hz + 0.5f);
+  uint32_t prescale = 0;
+
+  (void)channel;
+  while (newdiv > 65535u && prescale < 7u) {
+    newdiv = newdiv >> 1;
+    prescale = prescale + 1u;
+  }
+  if (newdiv > 65535u)
+    newdiv = 65535u;
+  else if (newdiv < 2u)
+    newdiv = 2u;
+  p->MCTRL |= FLEXPWM_MCTRL_CLDOK(mask);
+  p->SM[submodule].CTRL = FLEXPWM_SMCTRL_FULL | FLEXPWM_SMCTRL_PRSC(prescale);
+  p->SM[submodule].VAL1 = newdiv - 1u;
+  p->SM[submodule].VAL0 = (p->SM[submodule].VAL0 * newdiv) / olddiv;
+  p->SM[submodule].VAL3 = (p->SM[submodule].VAL3 * newdiv) / olddiv;
+  p->SM[submodule].VAL5 = (p->SM[submodule].VAL5 * newdiv) / olddiv;
+  p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
+  return 0;
+}
+
+int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, float frequency_hz) {
+  uint32_t newdiv =
+      (uint32_t)((float)clock_bus_frequency_hz / frequency_hz + 0.5f);
+  uint32_t prescale = 0;
+  uint32_t oldhigh;
+  uint32_t oldlow;
+  uint32_t high;
+  uint32_t low;
+
+  while (newdiv > 65534u && prescale < 7u) {
+    newdiv = newdiv >> 1;
+    prescale = prescale + 1u;
+  }
+  if (newdiv > 65534u)
+    newdiv = 65534u;
+  else if (newdiv < 2u)
+    newdiv = 2u;
+  oldhigh = p->CH[submodule].CMPLD1;
+  oldlow = 65537u - p->CH[submodule].LOAD;
+  high = (oldhigh * newdiv) / (oldhigh + oldlow);
+  low = newdiv - high;
+  p->CH[submodule].LOAD = (uint16_t)(65537u - low);
+  p->CH[submodule].CMPLD1 = (uint16_t)high;
+  p->CH[submodule].CTRL = TMR_CTRL_CM(1) | TMR_CTRL_PCS(8 + prescale) |
+                          TMR_CTRL_LENGTH | TMR_CTRL_OUTMODE(6);
+  return 0;
 }
 
 int pwm_write_impl(uint8_t pin, uint32_t value) {
@@ -152,8 +253,9 @@ static int pwm_set_frequency_info(const pwm_pin_info_t *info,
     default:
       flexpwm = &IMXRT_FLEXPWM4;
     }
+    (void)gpio;
     return pwm_frequency_flex(flexpwm, info->module & 3u, info->channel,
-                              info->muxval, gpio, frequency);
+                              frequency);
   }
   if (info->type == 2) {
     IMXRT_TMR_t *qtimer;
@@ -170,8 +272,8 @@ static int pwm_set_frequency_info(const pwm_pin_info_t *info,
     default:
       qtimer = &IMXRT_TMR4;
     }
-    return pwm_frequency_quad(qtimer, info->module & 3u, info->muxval, gpio,
-                              frequency);
+    (void)gpio;
+    return pwm_frequency_quad(qtimer, info->module & 3u, frequency);
   }
   return -1;
 }
