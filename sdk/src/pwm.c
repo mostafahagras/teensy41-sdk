@@ -85,8 +85,8 @@ const pwm_pin_info_t pwm_pin_info[TEENSY_GPIO_PIN_COUNT] = {
 
 #endif // __IMXRT1062__
 
-void flexpwmWrite(IMXRT_FLEXPWM_t *p, unsigned int submodule, uint8_t channel,
-                  uint16_t val) {
+static void flexpwmWrite(IMXRT_FLEXPWM_t *p, unsigned int submodule,
+                         uint8_t channel, uint16_t val) {
   uint16_t mask = 1 << submodule;
   uint32_t modulo = p->SM[submodule].VAL1;
   uint32_t cval = ((uint32_t)val * (modulo + 1)) >> pwm_resolution_bits;
@@ -110,9 +110,9 @@ void flexpwmWrite(IMXRT_FLEXPWM_t *p, unsigned int submodule, uint8_t channel,
   p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
 }
 
-void flexpwmFrequency(IMXRT_FLEXPWM_t *p, unsigned int submodule,
-                      uint8_t channel __attribute__((unused)),
-                      float frequency) {
+static void flexpwmFrequency(IMXRT_FLEXPWM_t *p, unsigned int submodule,
+                             uint8_t channel __attribute__((unused)),
+                             float frequency) {
   uint16_t mask = 1 << submodule;
   uint32_t olddiv = p->SM[submodule].VAL1;
   uint32_t newdiv =
@@ -136,7 +136,8 @@ void flexpwmFrequency(IMXRT_FLEXPWM_t *p, unsigned int submodule,
   p->MCTRL |= FLEXPWM_MCTRL_LDOK(mask);
 }
 
-void quadtimerWrite(IMXRT_TMR_t *p, unsigned int submodule, uint16_t val) {
+static void quadtimerWrite(IMXRT_TMR_t *p, unsigned int submodule,
+                           uint16_t val) {
   uint32_t modulo = 65537 - p->CH[submodule].LOAD + p->CH[submodule].CMPLD1;
   uint32_t high = ((uint32_t)val * (modulo - 1)) >> pwm_resolution_bits;
   if (high >= modulo - 1)
@@ -148,8 +149,8 @@ void quadtimerWrite(IMXRT_TMR_t *p, unsigned int submodule, uint16_t val) {
   p->CH[submodule].CMPLD1 = high;
 }
 
-void quadtimerFrequency(IMXRT_TMR_t *p, unsigned int submodule,
-                        float frequency) {
+static void quadtimerFrequency(IMXRT_TMR_t *p, unsigned int submodule,
+                               float frequency) {
   uint32_t newdiv =
       (uint32_t)((float)clock_bus_frequency_hz / frequency + 0.5f);
   uint32_t prescale = 0;
@@ -195,8 +196,8 @@ int pwm_write_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
   return 0;
 }
 
-int pwm_write_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
-                   uint32_t val) {
+static int pwm_write_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
+                          uint32_t val) {
   if (info == NULL || gpio == NULL)
     return -1;
   if (info->type == 1) {
@@ -237,10 +238,10 @@ int pwm_write_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
   return -1;
 }
 
-int pwm_write(uint8_t pin, uint32_t val) {
+int pwm_write_impl(uint8_t pin, uint32_t value) {
   if (pin >= TEENSY_GPIO_PIN_COUNT)
     return -1;
-  return pwm_write_info(&pwm_pin_info[pin], gpio_pin_runtime(pin), val);
+  return pwm_write_info(&pwm_pin_info[pin], gpio_pin_runtime(pin), value);
 }
 
 int pwm_frequency_flex(IMXRT_FLEXPWM_t *p, uint8_t submodule, uint8_t channel,
@@ -266,8 +267,8 @@ int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
   return 0;
 }
 
-int pwm_set_frequency_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
-                           float frequency) {
+static int pwm_set_frequency_info(const pwm_pin_info_t *info,
+                                  const gpio_pin_t *gpio, float frequency) {
   if (info == NULL || gpio == NULL || frequency <= 0.0f)
     return -1;
   if (info->type == 1) {
@@ -309,14 +310,14 @@ int pwm_set_frequency_info(const pwm_pin_info_t *info, const gpio_pin_t *gpio,
   return -1;
 }
 
-int pwm_set_frequency(uint8_t pin, float frequency) {
+int pwm_set_frequency_impl(uint8_t pin, float frequency_hz) {
   if (pin >= TEENSY_GPIO_PIN_COUNT)
     return -1;
   return pwm_set_frequency_info(&pwm_pin_info[pin], gpio_pin_runtime(pin),
-                                frequency);
+                                frequency_hz);
 }
 
-void flexpwm_init(IMXRT_FLEXPWM_t *p) {
+static void flexpwm_init(IMXRT_FLEXPWM_t *p) {
   int i;
 
   p->FCTRL0 = FLEXPWM_FCTRL0_FLVL(15); // logic high = fault
@@ -341,7 +342,7 @@ void flexpwm_init(IMXRT_FLEXPWM_t *p) {
   p->MCTRL |= FLEXPWM_MCTRL_RUN(15);
 }
 
-void quadtimer_init(IMXRT_TMR_t *p) {
+static void quadtimer_init(IMXRT_TMR_t *p) {
   int i;
 
   for (i = 0; i < 4; i++) {
@@ -373,7 +374,7 @@ void pwm_init(void) {
   quadtimer_init(&IMXRT_TMR3);
 }
 
-void xbar_connect(unsigned int input, unsigned int output) {
+static void xbar_connect(unsigned int input, unsigned int output) {
   if (input >= 88)
     return;
   if (output >= 132)
@@ -394,7 +395,7 @@ void xbar_connect(unsigned int input, unsigned int output) {
 #endif
 }
 
-uint32_t pwm_set_resolution(uint32_t bits) {
+uint32_t pwm_set_resolution_impl(uint32_t bits) {
   uint32_t prior;
   if (bits < 1) {
     bits = 1;
