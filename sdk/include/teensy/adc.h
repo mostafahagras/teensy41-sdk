@@ -208,6 +208,11 @@ static inline __attribute__((always_inline)) int adc_read(uint8_t pin) {
   return adc_read_channel(instance == 1u ? &IMXRT_ADC1 : &IMXRT_ADC2, channel);
 }
 
+#if defined(__clang__)
+static inline void adc_configure(uint8_t pin) __attribute__((diagnose_if(
+    !TEENSY_ADC_PIN_VALID(pin),
+    "invalid Teensy ADC pin; expected an analog-capable pin", "error")));
+#endif
 static inline __attribute__((always_inline)) void adc_configure(uint8_t pin) {
   gpio_pin_t gpio;
 

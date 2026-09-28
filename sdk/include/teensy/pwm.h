@@ -215,6 +215,12 @@ pwm_pin_output(gpio_pin_t *gpio, uint8_t muxval) {
 
 /* Routes a pin to its PWM function: direction=output, pad = plain
  * output drive, mux = the pin's PWM alternate function. */
+#if defined(__clang__)
+static inline void pwm_configure(uint8_t pin) __attribute__((diagnose_if(
+    !TEENSY_PWM_PIN_VALID(pin),
+    "invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54",
+    "error")));
+#endif
 static inline __attribute__((always_inline)) void pwm_configure(uint8_t pin) {
   gpio_pin_t gpio;
 
