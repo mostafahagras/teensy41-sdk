@@ -49,12 +49,13 @@ gpio_configure(uint8_t pin, gpio_mode_t mode);
 static inline __attribute__((always_inline)) int gpio_write(uint8_t pin,
                                                             bool high);
 
-/** Stores the current logic level of a GPIO pin in @p high.
- * @return 0 on success, or -1 if the pin or output pointer is invalid.
+/** Returns the current logic level of a GPIO pin.
+ * @param pin Teensy pin number.
+ * @return The pin state (true = high, false = low).  An invalid pin
+ * reads as false; with a constant pin out of range the build fails at
+ * compile time instead.
  */
-
-static inline __attribute__((always_inline)) int gpio_read(uint8_t pin,
-                                                           bool *high);
+static inline __attribute__((always_inline)) bool gpio_read(uint8_t pin);
 
 /** Inverts the output latch of a GPIO pin.
  * @return 0 on success, or -1 if the pin is invalid.
@@ -220,15 +221,11 @@ static inline __attribute__((always_inline)) int gpio_write(uint8_t pin,
   return 0;
 }
 
-static inline __attribute__((always_inline)) int gpio_read(uint8_t pin,
-                                                           bool *high) {
+static inline __attribute__((always_inline)) bool gpio_read(uint8_t pin) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
   gpio_pin_t d;
-  TEENSY_GPIO_PIN_RESOLVE(d, pin, -1);
-  if (high == NULL)
-    return -1;
-  *high = (*d.input & d.mask) != 0;
-  return 0;
+  TEENSY_GPIO_PIN_RESOLVE(d, pin, false);
+  return (*d.input & d.mask) != 0;
 }
 
 static inline __attribute__((always_inline)) int gpio_toggle(uint8_t pin) {

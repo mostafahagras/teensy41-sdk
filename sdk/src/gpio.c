@@ -45,13 +45,34 @@ static const gpio_pin_t *gpio_pin(uint8_t pin) {
 
 const gpio_pin_t *gpio_pin_runtime(uint8_t pin) { return gpio_pin(pin); }
 
+/* Restores the interrupt state as it was, instead of blindly re-enabling
+ * interrupts from inside a critical section. */
+static uint32_t gpio_critical_enter(void) {
+  uint32_t primask;
+
+  __asm volatile("mrs %0, primask\n"
+                 "cpsid i\n"
+                 : "=r"(primask)
+                 :
+                 : "memory");
+  return primask;
+}
+
+static void gpio_critical_leave(uint32_t primask) {
+  if ((primask & 1u) == 0)
+    __enable_irq();
+}
+
 void gpio_init(void) { attachInterruptVector(IRQ_GPIO6789, gpio_irq_handler); }
+
+static uint8_t gpio_configured[4];
 
 int gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
   uint32_t pad;
 
   if (pin == NULL || mode > GPIO_OUTPUT_OPEN_DRAIN)
     return -1;
+  gpio_configured[(uint8_t)(pin->port)] |= (uint8_t)(1u << pin->bit);
   pad = gpio_pad_for_mode(mode);
   if (mode == GPIO_OUTPUT || mode == GPIO_OUTPUT_OPEN_DRAIN) {
     *pin->direction |= pin->mask;
@@ -88,17 +109,20 @@ __attribute__((section(".fastrun"))) void gpio_irq_handler(void) {
 int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
                               gpio_interrupt_handler_t handler, void *context) {
   const gpio_interrupt_port_t *registers;
+  uint32_t primask;
   uint32_t icr;
   uint32_t shift;
 
   if (pin == NULL || handler == NULL || mode > GPIO_INTERRUPT_HIGH) {
     return -1;
   }
-  if (gpio_configure_pin(pin, GPIO_INPUT) != 0)
-    return -1;
+  if ((gpio_configured[(uint8_t)(pin->port)] & (uint8_t)(1u << pin->bit)) ==
+      0) {
+    return -1; /* attach only works on pins gpio_configure() has set up */
+  }
 
   registers = &gpio_interrupt_ports[pin->port];
-  __disable_irq();
+  primask = gpio_critical_enter();
   *registers->interrupt_mask &= ~pin->mask;
   gpio_handlers[pin->port][pin->bit] = handler;
   gpio_handler_contexts[pin->port][pin->bit] = context;
@@ -124,7 +148,7 @@ int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
     *registers->edge &= ~pin->mask;
     goto configure_level;
   default:
-    __enable_irq();
+    gpio_critical_leave(primask);
     return -1;
   }
   goto enable_interrupt;
@@ -146,20 +170,21 @@ enable_interrupt:
   NVIC_SET_PRIORITY(IRQ_GPIO6789, 128);
   NVIC_ENABLE_IRQ(IRQ_GPIO6789);
   *registers->interrupt_mask |= pin->mask;
-  __enable_irq();
+  gpio_critical_leave(primask);
   return 0;
 }
 
 int gpio_detach_interrupt_pin(const gpio_pin_t *pin) {
   const gpio_interrupt_port_t *registers;
+  uint32_t primask;
 
   if (pin == NULL)
     return -1;
   registers = &gpio_interrupt_ports[pin->port];
-  __disable_irq();
+  primask = gpio_critical_enter();
   *registers->interrupt_mask &= ~pin->mask;
   gpio_handlers[pin->port][pin->bit] = NULL;
   gpio_handler_contexts[pin->port][pin->bit] = NULL;
-  __enable_irq();
+  gpio_critical_leave(primask);
   return 0;
 }
