@@ -79,8 +79,13 @@ gpio_configure(uint8_t pin, gpio_mode_t mode);
  * @return 0 on success, or -1 if the pin is invalid.
  */
 
-static inline __attribute__((always_inline)) int gpio_write(uint8_t pin,
-                                                            bool high);
+#if defined(__clang__)
+static inline int gpio_write(uint8_t pin, bool high) __attribute__((diagnose_if(
+    pin >= TEENSY_GPIO_PIN_COUNT,
+    "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
+#endif
+static inline
+    __attribute__((always_inline)) int gpio_write(uint8_t pin, bool high);
 
 /** Returns the current logic level of a GPIO pin.
  * @param pin Teensy pin number.
@@ -336,9 +341,6 @@ const gpio_pin_t *gpio_pin_runtime(uint8_t pin);
 int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
                               gpio_interrupt_handler_t handler, void *context);
 int gpio_detach_interrupt_pin(const gpio_pin_t *pin);
-int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
-                              gpio_interrupt_handler_t handler, void *context);
-int gpio_detach_interrupt_pin(const gpio_pin_t *pin);
 static inline __attribute__((always_inline)) uint32_t
 gpio_pad_for_mode(gpio_mode_t mode) {
   switch (mode) {
@@ -409,6 +411,11 @@ static inline __attribute__((always_inline)) int gpio_write(uint8_t pin,
   return 0;
 }
 
+#if defined(__clang__)
+static inline bool gpio_read(uint8_t pin) __attribute__((diagnose_if(
+    pin >= TEENSY_GPIO_PIN_COUNT,
+    "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
+#endif
 static inline __attribute__((always_inline)) bool gpio_read(uint8_t pin) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
   gpio_pin_t d;
@@ -416,6 +423,11 @@ static inline __attribute__((always_inline)) bool gpio_read(uint8_t pin) {
   return (*d.input & d.mask) != 0;
 }
 
+#if defined(__clang__)
+static inline int gpio_toggle(uint8_t pin) __attribute__((diagnose_if(
+    pin >= TEENSY_GPIO_PIN_COUNT,
+    "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
+#endif
 static inline __attribute__((always_inline)) int gpio_toggle(uint8_t pin) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
   gpio_pin_t d;
@@ -568,8 +580,13 @@ gpio_set_drive_strength(uint8_t pin, uint8_t strength) {
   *d.pad = pad | (uint32_t)IOMUXC_PAD_DSE(strength);
   return 0;
 }
-static inline __attribute__((always_inline)) int
-gpio_detach_interrupt(uint8_t pin) {
+#if defined(__clang__)
+static inline int gpio_detach_interrupt(uint8_t pin) __attribute__((diagnose_if(
+    pin >= TEENSY_GPIO_PIN_COUNT,
+    "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
+#endif
+static inline
+    __attribute__((always_inline)) int gpio_detach_interrupt(uint8_t pin) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
   gpio_pin_t d;
   TEENSY_GPIO_PIN_RESOLVE(d, pin, -1);
