@@ -50,8 +50,10 @@ typedef struct {
   uint8_t muxval;
 } pwm_pin_info_t;
 
-#define PWM_CAPABLE_SET_H 0x33ccffffu
-#define PWM_CAPABLE_SET_L 0x0048fc32u
+/* Bits set for PWM-capable pins; the low mask covers pins 0..31, the
+ * high mask pins 32..54 (shifted by 32). */
+#define PWM_CAPABLE_SET_L 0x33ccffffu
+#define PWM_CAPABLE_SET_H 0x0048fc32u
 
 #define TEENSY_PWM_PIN_VALID(pin)                                              \
   ((pin) == (uint8_t)(pin) && (uint8_t)(pin) < TEENSY_GPIO_PIN_COUNT &&        \
@@ -181,8 +183,15 @@ int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, uint8_t muxval,
 
 /* =================== PUBLIC API IMPLEMENTATIONS ======================= */
 
+#if defined(__clang__)
+static inline int pwm_write(uint8_t pin, uint32_t value)
+    __attribute__((diagnose_if(
+        !TEENSY_PWM_PIN_VALID(pin),
+        "invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54",
+        "error")));
+#endif
 static inline __attribute__((always_inline)) int pwm_write(uint8_t pin,
-                                                           uint32_t value) {
+                                                            uint32_t value) {
   gpio_pin_t gpio;
 
   TEENSY_PWM_VALIDATE_CONSTANT_PIN(pin);
@@ -195,6 +204,15 @@ static inline __attribute__((always_inline)) int pwm_write(uint8_t pin,
   }
 }
 
+#if defined(__clang__)
+static inline int pwm_set_frequency(uint8_t pin, float frequency_hz)
+    __attribute__((diagnose_if(
+        !TEENSY_PWM_PIN_VALID(pin),
+        "invalid Teensy PWM pin; expected a PWM-capable pin from 0 to 54",
+        "error"),
+        diagnose_if(frequency_hz <= 0.0f,
+                    "PWM frequency must be greater than zero", "error")));
+#endif
 static inline __attribute__((always_inline)) int
 pwm_set_frequency(uint8_t pin, float frequency_hz) {
   gpio_pin_t gpio;
@@ -210,6 +228,12 @@ pwm_set_frequency(uint8_t pin, float frequency_hz) {
   }
 }
 
+#if defined(__clang__)
+static inline uint32_t pwm_set_resolution(uint32_t bits)
+    __attribute__((diagnose_if(bits < 1u || bits > 16u,
+                               "PWM resolution is clamped to the range 1..16",
+                               "warning")));
+#endif
 static inline __attribute__((always_inline)) uint32_t
 pwm_set_resolution(uint32_t bits) {
   TEENSY_PWM_VALIDATE_RESOLUTION(bits);
