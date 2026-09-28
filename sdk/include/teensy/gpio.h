@@ -322,8 +322,19 @@ gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
 
 /* =================== PUBLIC API IMPLEMENTATIONS ======================= */
 
-static inline __attribute__((always_inline)) int
-gpio_configure(uint8_t pin, gpio_mode_t mode) {
+#if defined(__clang__)
+static inline int gpio_configure(uint8_t pin, gpio_mode_t mode) __attribute__((
+    diagnose_if(pin >= TEENSY_GPIO_PIN_COUNT,
+                "invalid Teensy GPIO pin; expected a value from 0 to 54",
+                "error"),
+    diagnose_if(mode > GPIO_OUTPUT_OPEN_DRAIN,
+                "invalid GPIO mode; expected GPIO_INPUT through "
+                "GPIO_OUTPUT_OPEN_DRAIN",
+                "error")));
+#endif
+static inline
+    __attribute__((always_inline)) int gpio_configure(uint8_t pin,
+                                                      gpio_mode_t mode) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
   TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode);
   gpio_pin_t d;
@@ -358,6 +369,19 @@ static inline __attribute__((always_inline)) int gpio_toggle(uint8_t pin) {
   return 0;
 }
 
+#if defined(__clang__)
+static inline int gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
+                                        gpio_interrupt_handler_t handler,
+                                        void *context)
+    __attribute__((
+        diagnose_if(pin >= TEENSY_GPIO_PIN_COUNT,
+                    "invalid Teensy GPIO pin; expected a value from 0 to 54",
+                    "error"),
+        diagnose_if(mode > GPIO_INTERRUPT_HIGH,
+                    "invalid GPIO interrupt mode; expected "
+                    "GPIO_INTERRUPT_CHANGE through GPIO_INTERRUPT_HIGH",
+                    "error")));
+#endif
 static inline __attribute__((always_inline)) int
 gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
                       gpio_interrupt_handler_t handler, void *context) {
@@ -464,13 +488,13 @@ gpio_toggle_mask(gpio_port_t port, uint32_t mask) {
  * strength is out of range.
  */
 #if defined(__clang__)
-static inline int gpio_set_drive_strength(uint8_t pin, uint8_t strength)
-    __attribute__((diagnose_if(
-        pin >= TEENSY_GPIO_PIN_COUNT,
-        "invalid Teensy GPIO pin; expected a value from 0 to 54", "error"),
-        diagnose_if(strength > 7,
-                    "invalid GPIO drive strength; expected 0 through 7",
-                    "error")));
+static inline int
+gpio_set_drive_strength(uint8_t pin, uint8_t strength) __attribute__((
+    diagnose_if(pin >= TEENSY_GPIO_PIN_COUNT,
+                "invalid Teensy GPIO pin; expected a value from 0 to 54",
+                "error"),
+    diagnose_if(strength > 7,
+                "invalid GPIO drive strength; expected 0 through 7", "error")));
 #endif
 static inline __attribute__((always_inline)) int
 gpio_set_drive_strength(uint8_t pin, uint8_t strength) {
