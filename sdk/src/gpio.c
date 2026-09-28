@@ -65,24 +65,7 @@ static void gpio_critical_leave(uint32_t primask) {
 
 void gpio_init(void) { attachInterruptVector(IRQ_GPIO6789, gpio_irq_handler); }
 
-static uint8_t gpio_configured[4];
-
-int gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
-  uint32_t pad;
-
-  if (pin == NULL || mode > GPIO_OUTPUT_OPEN_DRAIN)
-    return -1;
-  gpio_configured[(uint8_t)(pin->port)] |= (uint8_t)(1u << pin->bit);
-  pad = gpio_pad_for_mode(mode);
-  if (mode == GPIO_OUTPUT || mode == GPIO_OUTPUT_OPEN_DRAIN) {
-    *pin->direction |= pin->mask;
-  } else {
-    *pin->direction &= ~pin->mask;
-  }
-  *pin->pad = pad;
-  *pin->mux = 5u | 0x10u;
-  return 0;
-}
+uint8_t gpio_configured_mask[4];
 
 __attribute__((section(".fastrun"))) void gpio_irq_handler(void) {
   uint8_t port;
@@ -116,8 +99,8 @@ int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
   if (pin == NULL || handler == NULL || mode > GPIO_INTERRUPT_HIGH) {
     return -1;
   }
-  if ((gpio_configured[(uint8_t)(pin->port)] & (uint8_t)(1u << pin->bit)) ==
-      0) {
+  if ((gpio_configured_mask[(uint8_t)(pin->port)] &
+       (uint8_t)(1u << pin->bit)) == 0) {
     return -1; /* attach only works on pins gpio_configure() has set up */
   }
 

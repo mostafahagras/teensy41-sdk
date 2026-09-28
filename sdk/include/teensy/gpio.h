@@ -26,8 +26,10 @@ typedef enum {
   GPIO_INTERRUPT_HIGH
 } gpio_interrupt_mode_t;
 
+/* Values deliberately start at 1 so the range checks in the bank
+ * functions cannot be optimized into always-true comparisons. */
 typedef enum {
-  GPIO_PORT_6 = 0, /* AD_B0 / AD_B1 pins */
+  GPIO_PORT_6 = 1, /* AD_B0 / AD_B1 pins */
   GPIO_PORT_7,     /* B0 / B1 pins          */
   GPIO_PORT_8,     /* SD_B0 + odd EMC pins  */
   GPIO_PORT_9      /* EMC pins              */
@@ -234,8 +236,16 @@ extern void gpio_invalid_constant_port(void) __attribute__((
   })
 #endif
 
+/* One bit per bank pin: set by gpio_configure_pin() on success and
+ * required by the interrupt attach path (a pin must be configured
+ * before an interrupt can attach to it). */
+extern uint8_t gpio_configured_mask[4];
+
 const gpio_pin_t *gpio_pin_runtime(uint8_t pin);
-int gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode);
+
+int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
+                              gpio_interrupt_handler_t handler, void *context);
+int gpio_detach_interrupt_pin(const gpio_pin_t *pin);
 int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
                               gpio_interrupt_handler_t handler, void *context);
 int gpio_detach_interrupt_pin(const gpio_pin_t *pin);
@@ -256,6 +266,24 @@ gpio_pad_for_mode(gpio_mode_t mode) {
   default:
     return 0;
   }
+}
+
+static inline __attribute__((always_inline)) int
+gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode) {
+  uint32_t pad;
+
+  if (pin == NULL || mode > GPIO_OUTPUT_OPEN_DRAIN)
+    return -1;
+  gpio_configured_mask[(uint8_t)(pin->port)] |= (uint8_t)(1u << pin->bit);
+  pad = gpio_pad_for_mode(mode);
+  if (mode == GPIO_OUTPUT || mode == GPIO_OUTPUT_OPEN_DRAIN) {
+    *pin->direction |= pin->mask;
+  } else {
+    *pin->direction &= ~pin->mask;
+  }
+  *pin->pad = pad;
+  *pin->mux = 5u | 0x10u;
+  return 0;
 }
 
 /* =================== PUBLIC API IMPLEMENTATIONS ======================= */

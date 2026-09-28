@@ -39,7 +39,6 @@ static void on_rx_idle(void *_) {
 
 int main(void) {
   usb_init();
-  time_init();
 
   gpio_configure(13, GPIO_OUTPUT);
   uart_init(uart1, 115200);

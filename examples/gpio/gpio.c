@@ -34,7 +34,6 @@ static void on_pin0_fall(void *_) {
 
 int main(void) {
   usb_init();
-  time_init();
 
   gpio_configure(13, GPIO_OUTPUT);
 
