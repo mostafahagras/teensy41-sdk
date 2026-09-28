@@ -26,7 +26,41 @@ typedef enum {
   GPIO_INTERRUPT_HIGH
 } gpio_interrupt_mode_t;
 
+typedef enum {
+  GPIO_PORT_6 = 0, /* AD_B0 / AD_B1 pins */
+  GPIO_PORT_7,     /* B0 / B1 pins          */
+  GPIO_PORT_8,     /* SD_B0 + odd EMC pins  */
+  GPIO_PORT_9      /* EMC pins              */
+} gpio_port_t;
+
 typedef void (*gpio_interrupt_handler_t)(void *context);
+
+/* The 55 Teensy header pins live in four 32-bit GPIO banks.  A bank is
+ * the unit of the *_mask() operations below: any subset of a bank's pins
+ * can be driven with a single atomic register write.
+ *
+ * Bank GPIO_PORT_6 (pins 0, 1, 14-27, 38-41):
+ *   bit 2  pin 1   bit12 pin 24  bit16 pin 19  bit22 pin 17  bit24 pin 22
+ *   bit 3  pin 0   bit13 pin 25  bit17 pin 18  bit23 pin 16  bit25 pin 23
+ *   bit16 pin 19   bit18 pin 14  bit20 pin 40  bit26 pin 20  bit28 pin 38
+ *   bit19 pin 15   bit21 pin 41  bit27 pin 21  bit29 pin 39  bit30 pin 26
+ *                            ...bits 30/31: pins 26/27
+ *
+ * Bank GPIO_PORT_7 (pins 6-13, 32, 34-37):
+ *   bit 0 pin 10   bit 1 pin 12   bit 2 pin 11   bit 3 pin 13 (LED)
+ *   bit10 pin  6   bit11 pin  9   bit12 pin 32
+ *   bit16 pin  8   bit17 pin  7   bit18 pin 36   bit19 pin 37
+ *   bit28 pin 35   bit29 pin 34
+ *
+ * Bank GPIO_PORT_8 (pins 28, 30, 31, 42-47):
+ *   bit12 pin 45   bit13 pin 44   bit14 pin 43   bit15 pin 42
+ *   bit16 pin 47   bit17 pin 46   bit18 pin 28   bit22 pin 31 bit23 pin 30
+ *
+ * Bank GPIO_PORT_9 (pins 2-5, 29, 33, 48-54):
+ *   bit 4 pin 2    bit 5 pin 3    bit 6 pin 4    bit 7 pin 33
+ *   bit 8 pin 5    bit22 pin 51   bit24 pin 48   bit25 pin 53
+ *   bit26 pin 52   bit27 pin 49   bit28 pin 50   bit29 pin 54 bit31 pin 29
+ */
 
 /* ============================== PUBLIC API ============================ */
 
@@ -175,6 +209,31 @@ gpio_pin_const(uint8_t pin) {
   return d;
 }
 
+/* Compile-time GPIO bank validation. */
+#if defined(__clang__)
+static inline void gpio_validate_port(gpio_port_t port) __attribute__((
+    diagnose_if(port < GPIO_PORT_6 || port > GPIO_PORT_9,
+                "invalid GPIO bank; expected GPIO_PORT_6 through GPIO_PORT_9",
+                "error")));
+static inline void gpio_validate_port(gpio_port_t port) { (void)port; }
+#else
+extern void gpio_invalid_constant_port(void) __attribute__((
+    error("invalid GPIO bank; expected GPIO_PORT_6 through GPIO_PORT_9")));
+#endif
+
+#if defined(__clang__)
+#define TEENSY_GPIO_VALIDATE_CONSTANT_PORT(port)                               \
+  gpio_validate_port((gpio_port_t)(port))
+#else
+#define TEENSY_GPIO_VALIDATE_CONSTANT_PORT(port)                               \
+  ({                                                                           \
+    if (__builtin_constant_p(port) &&                                          \
+        !((port) >= GPIO_PORT_6 && (port) <= GPIO_PORT_9))                     \
+      gpio_invalid_constant_port();                                            \
+    (void)0;                                                                   \
+  })
+#endif
+
 const gpio_pin_t *gpio_pin_runtime(uint8_t pin);
 int gpio_configure_pin(const gpio_pin_t *pin, gpio_mode_t mode);
 int gpio_attach_interrupt_pin(const gpio_pin_t *pin, gpio_interrupt_mode_t mode,
@@ -245,6 +304,118 @@ gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
   return gpio_attach_interrupt_pin(&d, mode, handler, context);
 }
 
+/** \'Drives a subset of one GPIO bank high in a single atomic register
+ * #write; every other bit of the mask is left untouched.
+ * @param port One of the GPIO_PORT_6..GPIO_PORT_9 constants.
+ * @param mask Bit mask selecting the pins to drive high.
+ */
+#if defined(__clang__)
+static inline int gpio_set_mask(gpio_port_t port, uint32_t mask)
+    __attribute__((diagnose_if(port < GPIO_PORT_6 || port > GPIO_PORT_9,
+                               "invalid GPIO port; expected GPIO_PORT_6 "
+                               "through GPIO_PORT_9",
+                               "error")));
+#endif
+static inline __attribute__((always_inline)) int gpio_set_mask(gpio_port_t port,
+                                                               uint32_t mask) {
+  TEENSY_GPIO_VALIDATE_CONSTANT_PORT(port);
+  switch (port) {
+  case GPIO_PORT_6:
+    GPIO6_DR_SET = mask;
+    break;
+  case GPIO_PORT_7:
+    GPIO7_DR_SET = mask;
+    break;
+  case GPIO_PORT_8:
+    GPIO8_DR_SET = mask;
+    break;
+  case GPIO_PORT_9:
+    GPIO9_DR_SET = mask;
+    break;
+  default:
+    return -1;
+  }
+  return 0;
+}
+
+/** Drives a subset of one GPIO bank low atomically; other bits unchanged.
+ * @param port One of the GPIO_PORT_6..GPIO_PORT_9 constants.
+ * @param mask Bit mask selecting the pins to drive low.
+ */
+static inline __attribute__((always_inline)) int
+gpio_clear_mask(gpio_port_t port, uint32_t mask) {
+  TEENSY_GPIO_VALIDATE_CONSTANT_PORT(port);
+  switch (port) {
+  case GPIO_PORT_6:
+    GPIO6_DR_CLEAR = mask;
+    break;
+  case GPIO_PORT_7:
+    GPIO7_DR_CLEAR = mask;
+    break;
+  case GPIO_PORT_8:
+    GPIO8_DR_CLEAR = mask;
+    break;
+  case GPIO_PORT_9:
+    GPIO9_DR_CLEAR = mask;
+    break;
+  default:
+    return -1;
+  }
+  return 0;
+}
+
+/** Inverts a subset of one GPIO bank atomically; other bits unchanged.
+ * @param port One of the GPIO_PORT_6..GPIO_PORT_9 constants.
+ * @param mask Bit mask selecting the pins to invert.
+ */
+static inline __attribute__((always_inline)) int
+gpio_toggle_mask(gpio_port_t port, uint32_t mask) {
+  TEENSY_GPIO_VALIDATE_CONSTANT_PORT(port);
+  switch (port) {
+  case GPIO_PORT_6:
+    GPIO6_DR_TOGGLE = mask;
+    break;
+  case GPIO_PORT_7:
+    GPIO7_DR_TOGGLE = mask;
+    break;
+  case GPIO_PORT_8:
+    GPIO8_DR_TOGGLE = mask;
+    break;
+  case GPIO_PORT_9:
+    GPIO9_DR_TOGGLE = mask;
+    break;
+  default:
+    return -1;
+  }
+  return 0;
+}
+
+/** Adjusts the output drive strength (DSE field) of a configured pin
+ * without touching its mode, pull or open-drain configuration.
+ * 7 = strongest driver (the default GPIO_OUTPUT config), lower values
+ * trade edge rate for reduced EMI/current.
+ * @param pin Teensy pin number, previously passed to gpio_configure().
+ * @param strength Drive strength 0..7.
+ * @return 0 on success, -1 if the pin is not configured or the
+ * strength is out of range.
+ */
+#if defined(__clang__)
+static inline int gpio_set_drive_strength(uint8_t pin, uint8_t strength)
+    __attribute__((diagnose_if(
+        pin >= TEENSY_GPIO_PIN_COUNT,
+        "invalid Teensy GPIO pin; expected a value from 0 to 54", "error")));
+#endif
+static inline __attribute__((always_inline)) int
+gpio_set_drive_strength(uint8_t pin, uint8_t strength) {
+  TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
+  if (strength > 7)
+    return -1;
+  gpio_pin_t d;
+  TEENSY_GPIO_PIN_RESOLVE(d, pin, -1);
+  uint32_t pad = *d.pad & ~(uint32_t)IOMUXC_PAD_DSE(7);
+  *d.pad = pad | (uint32_t)IOMUXC_PAD_DSE(strength);
+  return 0;
+}
 static inline __attribute__((always_inline)) int
 gpio_detach_interrupt(uint8_t pin) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);

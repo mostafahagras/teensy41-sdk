@@ -3,6 +3,7 @@
 
 set(TEENSY_EXAMPLES
     blink
+    gpio
     timers
     rtc
     temperature
