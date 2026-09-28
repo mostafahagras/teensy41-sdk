@@ -196,12 +196,67 @@ extern void gpio_invalid_constant_strength(void)
     __attribute__((error("invalid GPIO drive strength; expected 0 through 7")));
 #endif
 
+/* Interrupt modes are their own enum with a different ceiling; using the
+ * gpio_mode_t validator on them trips -Wenum-compare (attached-on enums
+ * compare-side). */
+#if defined(__clang__)
+static inline void gpio_validate_interrupt_mode(gpio_interrupt_mode_t mode)
+    __attribute__((diagnose_if(mode > GPIO_INTERRUPT_HIGH,
+                               "invalid GPIO interrupt mode; expected "
+                               "GPIO_INTERRUPT_CHANGE through "
+                               "GPIO_INTERRUPT_HIGH",
+                               "error")));
+static inline void gpio_validate_interrupt_mode(gpio_interrupt_mode_t mode) {
+  (void)mode;
+}
+#else
+extern void gpio_invalid_constant_interrupt_mode(void) __attribute__((
+    error("invalid GPIO interrupt mode; expected GPIO_INTERRUPT_CHANGE "
+          "through GPIO_INTERRUPT_HIGH")));
+#endif
+
+/* Guaranteed-to-fail attach: a constant NULL handler produces a warning
+ * (not an error) at the call site in both compilers. */
+#if defined(__clang__)
+static inline void gpio_warn_null_handler(gpio_interrupt_handler_t handler)
+    __attribute__((diagnose_if(handler == 0,
+                               "gpio_attach_interrupt with a NULL handler "
+                               "always fails; use gpio_detach_interrupt "
+                               "instead",
+                               "warning")));
+static inline void gpio_warn_null_handler(gpio_interrupt_handler_t handler) {
+  (void)handler;
+}
+#define TEENSY_GPIO_WARN_NULL_HANDLER(handler)                                 \
+  gpio_warn_null_handler((gpio_interrupt_handler_t)(handler))
+#else
+extern void gpio_null_handler_warning(void)
+    __attribute__((warning("gpio_attach_interrupt with a NULL handler "
+                           "always fails; use gpio_detach_interrupt "
+                           "instead")));
+#define TEENSY_GPIO_WARN_NULL_HANDLER(handler)                                 \
+  ({                                                                           \
+    if (__builtin_constant_p(handler) && (handler) == NULL)                    \
+      gpio_null_handler_warning();                                             \
+    (void)0;                                                                   \
+  })
+#endif
+
 #if defined(__clang__)
 #define TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode)                               \
   gpio_validate_mode((gpio_mode_t)(mode))
+#define TEENSY_GPIO_VALIDATE_CONSTANT_INTERRUPT_MODE(mode)                     \
+  gpio_validate_interrupt_mode((gpio_interrupt_mode_t)(mode))
 #define TEENSY_GPIO_VALIDATE_CONSTANT_STRENGTH(strength)                       \
   gpio_validate_strength((uint8_t)(strength))
 #else
+#define TEENSY_GPIO_VALIDATE_CONSTANT_INTERRUPT_MODE(mode)                     \
+  ({                                                                           \
+    if (__builtin_constant_p(mode) && !((mode) <= GPIO_INTERRUPT_HIGH))        \
+      gpio_invalid_constant_interrupt_mode();                                  \
+    (void)0;                                                                   \
+  })
+
 #define TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode)                               \
   ({                                                                           \
     if (__builtin_constant_p(mode) && !((mode) <= GPIO_OUTPUT_OPEN_DRAIN))     \
@@ -380,13 +435,18 @@ static inline int gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
         diagnose_if(mode > GPIO_INTERRUPT_HIGH,
                     "invalid GPIO interrupt mode; expected "
                     "GPIO_INTERRUPT_CHANGE through GPIO_INTERRUPT_HIGH",
-                    "error")));
+                    "error"),
+        diagnose_if(handler == 0,
+                    "gpio_attach_interrupt with a NULL handler always "
+                    "fails; use gpio_detach_interrupt instead",
+                    "warning")));
 #endif
 static inline __attribute__((always_inline)) int
 gpio_attach_interrupt(uint8_t pin, gpio_interrupt_mode_t mode,
                       gpio_interrupt_handler_t handler, void *context) {
   TEENSY_GPIO_VALIDATE_CONSTANT_PIN(pin);
-  TEENSY_GPIO_VALIDATE_CONSTANT_MODE(mode);
+  TEENSY_GPIO_VALIDATE_CONSTANT_INTERRUPT_MODE(mode);
+  TEENSY_GPIO_WARN_NULL_HANDLER(handler);
   gpio_pin_t d;
   TEENSY_GPIO_PIN_RESOLVE(d, pin, -1);
   return gpio_attach_interrupt_pin(&d, mode, handler, context);
