@@ -13,6 +13,12 @@
 /** Initializes all PWM controller clocks, submodules and channels. */
 void pwm_init(void);
 
+/** Routes one pin to its PWM function (direction, pad drive, mux) and
+ * holds duty zero; run once per pin after pwm_init().
+ * @param pin A PWM-capable Teensy 4.1 pin.
+ */
+static inline __attribute__((always_inline)) void pwm_configure(uint8_t pin);
+
 /** Sets a PWM pin's duty value using the current resolution.
  * @param pin A PWM-capable Teensy 4.1 pin.
  * @param value Duty value; values above the current resolution's
@@ -158,6 +164,14 @@ int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, float frequency_hz);
 #define TEENSY_PWM_QUAD_POINTER_49 &IMXRT_TMR4
 #define TEENSY_PWM_QUAD_POINTER_50 &IMXRT_TMR4
 
+#define TEENSY_PWM_CONFIGURE_CASE(number, type, module, channel, muxval)       \
+  case number:                                                                 \
+    if (type == 1 || type == 2) {                                              \
+      pwm_pin_output(&gpio, muxval);                                           \
+      return;                                                                  \
+    }                                                                          \
+    return;
+
 #define TEENSY_PWM_WRITE_CASE(number, type, module, channel, muxval)           \
   case number:                                                                 \
     if ((type) == 1) {                                                         \
@@ -175,12 +189,12 @@ int pwm_frequency_quad(IMXRT_TMR_t *p, uint8_t submodule, float frequency_hz);
 #define TEENSY_PWM_FREQUENCY_CASE(number, type, module, channel, muxval)       \
   case number:                                                                 \
     if ((type) == 1) {                                                         \
-      pwm_pin_output(&gpio, muxval);                                           \
+      *gpio.mux = muxval;                                                      \
       return pwm_frequency_flex(TEENSY_PWM_FLEX_POINTER_##module,              \
                                 (module) & 3u, channel, frequency_hz);         \
     }                                                                          \
     if ((type) == 2) {                                                         \
-      pwm_pin_output(&gpio, muxval);                                           \
+      *gpio.mux = muxval;                                                      \
       return pwm_frequency_quad(TEENSY_PWM_QUAD_POINTER_##module,              \
                                 (module) & 3u, frequency_hz);                  \
     }                                                                          \
@@ -197,6 +211,21 @@ pwm_pin_output(gpio_pin_t *gpio, uint8_t muxval) {
   *gpio->direction |= gpio->mask;
   *gpio->pad = gpio_pad_for_mode(GPIO_OUTPUT);
   *gpio->mux = muxval;
+}
+
+/* Routes a pin to its PWM function: direction=output, pad = plain
+ * output drive, mux = the pin's PWM alternate function. */
+static inline __attribute__((always_inline)) void pwm_configure(uint8_t pin) {
+  gpio_pin_t gpio;
+
+  TEENSY_PWM_VALIDATE_CONSTANT_PIN(pin);
+  gpio = gpio_pin_const(pin);
+
+  switch (pin) {
+    TEENSY_PWM_PIN_MAP(TEENSY_PWM_CONFIGURE_CASE)
+  default:
+    return;
+  }
 }
 
 /* =================== PUBLIC API IMPLEMENTATIONS ======================= */

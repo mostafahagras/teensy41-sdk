@@ -33,6 +33,12 @@
  */
 int adc_init(void);
 
+/** Routes one pin to its analog function (mux ALT0 + pad keeper/bias
+ * cleanup); run once per pin, before adc_read()s on it.
+ * @param pin One of the A0..A17 constants.
+ */
+static inline __attribute__((always_inline)) void adc_configure(uint8_t pin);
+
 /** Reads a raw ADC value from an analog-capable Teensy 4.1 board pin.
  * @param pin One of the A0..A17 constants.
  * @return The conversion result in ADC counts, or -1 if the pin is not
@@ -198,9 +204,18 @@ static inline __attribute__((always_inline)) int adc_read(uint8_t pin) {
   TEENSY_ADC_PIN_RESOLVE(instance, channel, pin, -1);
   if (instance == 0 || !adc_initialized)
     return -1;
-  gpio_pin_t gpio = gpio_pin_const(pin);
-  adc_configure_pin(&gpio);
+  *gpio_pin_const(pin).mux = 0; /* re-affirm routing; pad set once */
   return adc_read_channel(instance == 1u ? &IMXRT_ADC1 : &IMXRT_ADC2, channel);
+}
+
+static inline __attribute__((always_inline)) void adc_configure(uint8_t pin) {
+  gpio_pin_t gpio;
+
+  TEENSY_ADC_VALIDATE_PIN(pin);
+  gpio = gpio_pin_const(pin);
+  if (gpio.mux == NULL)
+    return;
+  adc_configure_pin(&gpio);
 }
 
 #if defined(__clang__)
