@@ -70,6 +70,60 @@ adc_set_averaging(uint32_t samples);
 /* Set by adc_init(): conversion entry points refuse to run without it. */
 extern uint8_t adc_initialized;
 
+/* Compile-time validation: analog-capable pin values and the supported
+ * resolution/averaging settings, as call-site diagnostics. */
+#if defined(__clang__)
+static inline void adc_validate_pin(uint32_t pin) __attribute__((diagnose_if(
+    !TEENSY_ADC_PIN_VALID(pin),
+    "invalid Teensy ADC pin; expected an analog-capable pin", "error")));
+static inline void adc_validate_pin(uint32_t pin) { (void)pin; }
+static inline void adc_validate_resolution(uint32_t bits)
+    __attribute__((diagnose_if(bits != 8u && bits != 10u && bits != 12u,
+                               "ADC resolution must be 8, 10, or 12 bits",
+                               "error")));
+static inline void adc_validate_resolution(uint32_t bits) { (void)bits; }
+static inline void adc_validate_averaging(uint32_t samples) __attribute__((
+    diagnose_if(samples != 1u && samples != 4u && samples != 8u &&
+                    samples != 16u && samples != 32u,
+                "ADC averaging must be 1, 4, 8, 16, or 32", "error")));
+static inline void adc_validate_averaging(uint32_t samples) { (void)samples; }
+#else
+extern void adc_invalid_pin(void) __attribute__((
+    error("invalid Teensy ADC pin; expected an analog-capable pin")));
+extern void adc_invalid_resolution(void)
+    __attribute__((error("ADC resolution must be 8, 10, or 12 bits")));
+extern void adc_invalid_averaging(void)
+    __attribute__((error("ADC averaging must be 1, 4, 8, 16, or 32")));
+#endif
+
+#if defined(__clang__)
+#define TEENSY_ADC_VALIDATE_PIN(pin) adc_validate_pin((uint8_t)(pin))
+#define TEENSY_ADC_VALIDATE_RESOLUTION(bits) adc_validate_resolution(bits)
+#define TEENSY_ADC_VALIDATE_AVERAGING(samples) adc_validate_averaging((samples))
+#else
+#define TEENSY_ADC_VALIDATE_PIN(pin)                                           \
+  ({                                                                           \
+    if (__builtin_constant_p(pin) && !TEENSY_ADC_PIN_VALID(pin))               \
+      adc_invalid_pin();                                                       \
+    (void)0;                                                                   \
+  })
+#define TEENSY_ADC_VALIDATE_RESOLUTION(bits)                                   \
+  ({                                                                           \
+    if (__builtin_constant_p(bits) &&                                          \
+        ((bits) != 8u && (bits) != 10u && (bits) != 12u))                      \
+      adc_invalid_resolution();                                                \
+    (void)0;                                                                   \
+  })
+#define TEENSY_ADC_VALIDATE_AVERAGING(samples)                                 \
+  ({                                                                           \
+    if (__builtin_constant_p(samples) &&                                       \
+        ((samples) != 1u && (samples) != 4u && (samples) != 8u &&              \
+         (samples) != 16u && (samples) != 32u))                                \
+      adc_invalid_averaging();                                                 \
+    (void)0;                                                                   \
+  })
+#endif
+
 /* Internals backed by adc.c. */
 int adc_set_resolution_impl(uint32_t bits);
 int adc_set_averaging_impl(uint32_t samples);
@@ -113,10 +167,16 @@ adc_read_channel(IMXRT_ADCS_t *adc, uint8_t channel) {
 
 /* =================== PUBLIC API IMPLEMENTATIONS ======================= */
 
+#if defined(__clang__)
+static inline int adc_read(uint8_t pin) __attribute__((diagnose_if(
+    !TEENSY_ADC_PIN_VALID(pin),
+    "invalid Teensy ADC pin; expected an analog-capable pin", "error")));
+#endif
 static inline __attribute__((always_inline)) int adc_read(uint8_t pin) {
   uint8_t instance = 0;
   uint8_t channel = 0;
 
+  TEENSY_ADC_VALIDATE_PIN(pin);
   TEENSY_ADC_PIN_RESOLVE(instance, channel, pin, -1);
   if (instance == 0 || !adc_initialized)
     return -1;
@@ -125,13 +185,27 @@ static inline __attribute__((always_inline)) int adc_read(uint8_t pin) {
   return adc_read_channel(instance == 1u ? &IMXRT_ADC1 : &IMXRT_ADC2, channel);
 }
 
-static inline __attribute__((always_inline)) int
-adc_set_resolution(uint32_t bits) {
+#if defined(__clang__)
+static inline int adc_set_resolution(uint32_t bits)
+    __attribute__((diagnose_if(bits != 8u && bits != 10u && bits != 12u,
+                               "ADC resolution must be 8, 10, or 12 bits",
+                               "error")));
+#endif
+static inline
+    __attribute__((always_inline)) int adc_set_resolution(uint32_t bits) {
+  TEENSY_ADC_VALIDATE_RESOLUTION(bits);
   return adc_set_resolution_impl(bits);
 }
 
-static inline __attribute__((always_inline)) int
-adc_set_averaging(uint32_t samples) {
+#if defined(__clang__)
+static inline int adc_set_averaging(uint32_t samples) __attribute__((
+    diagnose_if(samples != 1u && samples != 4u && samples != 8u &&
+                    samples != 16u && samples != 32u,
+                "ADC averaging must be 1, 4, 8, 16, or 32", "error")));
+#endif
+static inline
+    __attribute__((always_inline)) int adc_set_averaging(uint32_t samples) {
+  TEENSY_ADC_VALIDATE_AVERAGING(samples);
   return adc_set_averaging_impl(samples);
 }
 
