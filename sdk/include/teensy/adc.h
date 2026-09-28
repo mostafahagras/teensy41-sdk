@@ -215,4 +215,65 @@ static inline
   return adc_set_averaging_impl(samples);
 }
 
+/** Registers the completion handler for one ADC's adc_trigger()-started
+ * conversions.  The handler runs in interrupt context and receives the
+ * raw conversion result; it must be quick (no blocking).  Pass NULL to
+ * detach.  One ADC must not use the interrupt and blocking paths at the
+ * same time - the handler consumes the conversion result.
+ * @param instance 1 (ADC1) or 2 (ADC2).
+ * @param handler Handler, receives the raw value and @p context.
+ * @param context Passed through to @p handler.
+ * @return 0 on success, or -1 for an invalid instance.
+ */
+static inline __attribute__((always_inline)) int
+adc_attach_irq(uint8_t instance, void (*handler)(uint16_t value, void *context),
+               void *context);
+
+/** Starts one conversion on an initialized ADC; its result is delivered
+ * by the handler registered with adc_attach_irq() instead of being
+ * returned to the caller.
+ * @param instance 1 (ADC1) or 2 (ADC2).
+ * @param channel 0..15, the ADC channel of the pin to sample (see the
+ * pin map: e.g. A0 = ADC1 channel 7).
+ * @return 0 on success, or -1 if the ADC is uninitialized, the
+ * instance is invalid or the channel is out of range.
+ */
+static inline __attribute__((always_inline)) int adc_trigger(uint8_t instance,
+                                                             uint8_t channel);
+
+#if defined(__clang__)
+static inline int adc_attach_irq(uint8_t instance,
+                                 void (*handler)(uint16_t value, void *context),
+                                 void *context)
+    __attribute__((
+        diagnose_if(instance != 1u && instance != 2u,
+                    "invalid ADC instance; expected 1 (ADC1) or 2 (ADC2)",
+                    "error"),
+        diagnose_if(handler == 0,
+                    "adc_attach_irq with a NULL handler detaches the "
+                    "interrupt; use it deliberately or not at all",
+                    "warning")));
+#endif
+static inline __attribute__((always_inline)) int
+adc_attach_irq(uint8_t instance, void (*handler)(uint16_t value, void *context),
+               void *context) {
+  if (instance != 1u && instance != 2u)
+    return -1;
+  return adc_attach_irq_impl(instance, handler, context);
+}
+
+#if defined(__clang__)
+static inline int adc_trigger(uint8_t instance, uint8_t channel) __attribute__((
+    diagnose_if(instance != 1u && instance != 2u,
+                "invalid ADC instance; expected 1 (ADC1) or 2 (ADC2)", "error"),
+    diagnose_if(channel > 15u, "invalid ADC channel; expected 0 through 15",
+                "error")));
+#endif
+static inline __attribute__((always_inline)) int adc_trigger(uint8_t instance,
+                                                             uint8_t channel) {
+  if (instance != 1u && instance != 2u)
+    return -1;
+  return adc_trigger_impl(instance, channel);
+}
+
 #endif
