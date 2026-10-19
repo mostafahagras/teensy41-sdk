@@ -191,7 +191,12 @@ int main(int argc, char **argv)
 		} else {
 			die("Unknown code/block size\n");
 		}
-		r = teensy_write(buf, write_size, block_count <= 4 ? 45.0 : 0.5);
+		// macOS intermittently drops the HID write after a soft reboot
+		// (report 1) and then the Arduino Serial Monitor owns the *new*
+		// strip.  Rather than dying the whole script for what is
+		// transiently a device-driven failure, retry the block.
+		r = teensy_write(buf, write_size, block_count <= 4 ? 45.0 : 1.0);
+		if (!r) r = teensy_write(buf, write_size, 1.0);
 		if (!r) die("error writing to Teensy\n");
 		block_count = block_count + 1;
 	}
