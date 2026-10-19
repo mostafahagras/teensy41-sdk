@@ -317,6 +317,26 @@ static bool uart_tx_empty(const uart_state_t *state) {
   return state->tx_head == state->tx_tail;
 }
 
+/* Called with interrupts masked. Keep TE enabled until both the software
+ * queue and hardware transmitter are drained; the IRQ cannot drain the
+ * queue here, so feed the FIFO directly. Never hang on a stuck peripheral. */
+static bool uart_drain_tx(const uart_device_t *device) {
+  uart_state_t *state = device->state;
+  IMXRT_LPUART_t *port = device->config->port;
+  uint32_t start = time_micros();
+
+  while (!uart_tx_empty(state) || !(port->STAT & LPUART_STAT_TC)) {
+    if (!uart_tx_empty(state) && (port->STAT & LPUART_STAT_TDRE)) {
+      port->DATA = state->tx_buffer[state->tx_tail];
+      state->tx_tail = (uint16_t)((state->tx_tail + 1u) % UART_TX_CAPACITY);
+    }
+    if ((uint32_t)(time_micros() - start) >= 100000u)
+      return false;
+  }
+  port->CTRL &= ~(LPUART_CTRL_TIE | LPUART_CTRL_TCIE);
+  return true;
+}
+
 static void uart_irq_handler(const uart_device_t *device) {
   const uart_config_t *config = device->config;
   uart_state_t *state = device->state;
@@ -405,12 +425,17 @@ int uart_set_format_device(uart_device_t *device, uint8_t data_bits,
     return -1;
   if (stop_bits < 1 || stop_bits > 2)
     return -1;
+  if (parity != UART_PARITY_NONE && parity != UART_PARITY_EVEN &&
+      parity != UART_PARITY_ODD)
+    return -1;
 
   uint32_t primask = uart_critical_enter();
-  port->CTRL &= ~(LPUART_CTRL_TE | LPUART_CTRL_RE);
-  while (!(port->STAT & LPUART_STAT_TC))
-    ;
+  if (!uart_drain_tx(device)) {
+    uart_critical_leave(primask);
+    return -1;
+  }
   ctrl = port->CTRL;
+  port->CTRL = ctrl & ~(LPUART_CTRL_TE | LPUART_CTRL_RE);
   ctrl &= ~(LPUART_CTRL_M | LPUART_CTRL_PE | LPUART_CTRL_PT);
   if (parity != UART_PARITY_NONE)
     ctrl |= LPUART_CTRL_PE;
@@ -418,12 +443,12 @@ int uart_set_format_device(uart_device_t *device, uint8_t data_bits,
     ctrl |= LPUART_CTRL_PT;
   if (data_bits == 8 && parity != UART_PARITY_NONE)
     ctrl |= LPUART_CTRL_M;
-  port->CTRL = ctrl;
+  port->CTRL = ctrl & ~(LPUART_CTRL_TE | LPUART_CTRL_RE);
   baud = port->BAUD & ~LPUART_BAUD_SBNS;
   if (stop_bits == 2)
     baud |= LPUART_BAUD_SBNS;
   port->BAUD = baud;
-  port->CTRL |= LPUART_CTRL_TE | LPUART_CTRL_RE;
+  port->CTRL = ctrl;
   uart_critical_leave(primask);
   return 0;
 }
@@ -440,11 +465,14 @@ uint32_t uart_set_baud_device(uart_device_t *device, uint32_t baud_rate) {
     return 0;
   actual = uart_best_baud(baud_rate, &osr, &sbr);
   uint32_t primask = uart_critical_enter();
+  if (!uart_drain_tx(device)) {
+    uart_critical_leave(primask);
+    return 0;
+  }
   ctrl = port->CTRL;
   port->CTRL = ctrl & ~(LPUART_CTRL_TE | LPUART_CTRL_RE);
-  while (!(port->STAT & LPUART_STAT_TC))
-    ;
-  port->BAUD = LPUART_BAUD_OSR(osr - 1u) | LPUART_BAUD_SBR(sbr) |
+  port->BAUD = (port->BAUD & (LPUART_BAUD_SBNS | LPUART_BAUD_M10)) |
+               LPUART_BAUD_OSR(osr - 1u) | LPUART_BAUD_SBR(sbr) |
                (osr <= 8u ? LPUART_BAUD_BOTHEDGE : 0u);
   port->CTRL = ctrl;
   uart_critical_leave(primask);

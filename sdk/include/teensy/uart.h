@@ -277,13 +277,13 @@ static inline __attribute__((always_inline)) void uart_flush(uart_id_t uart) {
 /** Sets the data/stop/parity framing of an initialized UART.  LPUART
  * hardware constraint: 7 data bits require a parity bit; 5/6-bit frames
  * are not expressible.  Pauses transmission until the current frame
- * completes.
+ * completes. Returns an error if draining transmission takes over 100 ms.
  * @param uart One of the uart1..uart8 constants.
  * @param data_bits 7 or 8 (7 requires parity).
  * @param stop_bits 1 or 2.
  * @param parity UART_PARITY_NONE, UART_PARITY_EVEN or UART_PARITY_ODD.
  * @return 0 on success, -1 if the UART is uninitialized or the framing
- * is not expressible in LPUART hardware.
+ * is not expressible in LPUART hardware, or transmission fails to drain.
  */
 #if defined(__clang__)
 static inline void uart_clear(uart_id_t uart)
@@ -303,7 +303,8 @@ uart_set_format(uart_id_t uart, uint8_t data_bits, uint8_t stop_bits,
 /** Changes the baud rate of an initialized UART.
  * @param uart One of the uart1..uart8 constants.
  * @param baud_rate Requested baud in bits per second.
- * @return The achieved baud (closest hardware divisor), or 0 on error.
+ * @return The achieved baud (closest hardware divisor), or 0 on invalid input
+ * or if draining transmission takes over 100 ms.
  */
 #if defined(__clang__)
 static inline void uart_clear(uart_id_t uart)
