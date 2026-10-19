@@ -27,6 +27,18 @@ typedef enum {
   UART_PARITY_ODD = 2
 } uart_parity_t;
 
+/* Exclusive ownership of a UART's receive callbacks. Claiming RX
+ * leaves the UART IRQ and ring buffer active; it suspends app callbacks so a
+ * foreground protocol can consume uart_read() bytes without an ISR consumer. */
+typedef struct {
+  uart_id_t uart;
+  void (*rx_callback)(uint8_t byte, void *context);
+  void (*rx_idle_callback)(void *context);
+  void *rx_context;
+  void *rx_idle_context;
+  bool active;
+} uart_rx_lease_t;
+
 /* Opaque device handle.
  * @internal
  * Normally only reachable through the public API; exposed so the rare
@@ -148,6 +160,9 @@ void uart_attach_rx_device(uart_device_t *device,
                            void *context);
 void uart_attach_rx_idle_device(uart_device_t *device,
                                 void (*callback)(void *context), void *context);
+int uart_claim_rx_device(uart_device_t *device, uart_id_t uart,
+                         uart_rx_lease_t *lease);
+void uart_release_rx_device(uart_device_t *device, uart_rx_lease_t *lease);
 
 /* ===================== PUBLIC API IMPLEMENTATIONS ===================== */
 
@@ -366,6 +381,25 @@ uart_attach_rx_idle(uart_id_t uart, void (*callback)(void *context),
     return;
   TEENSY_UART_DEVICE_SWITCH_VOID(uart_attach_rx_idle_device, uart, callback,
                                  context);
+}
+
+/** Temporarily suspends RX callbacks while keeping the UART IRQ and RX ring
+ * active. The caller may consume received bytes with uart_read(). Claiming
+ * also discards unread bytes from before the lease. Release restores the
+ * callbacks that were active at claim time.
+ * @return 0 on success, or -1 if the UART is uninitialized/already claimed. */
+static inline int uart_claim_rx(uart_id_t uart, uart_rx_lease_t *lease) {
+  if (uart < UART_ID_1 || uart > UART_ID_8 || lease == NULL)
+    return -1;
+  TEENSY_UART_DEVICE_SWITCH(uart_claim_rx_device, uart, -1, uart, lease);
+}
+
+/** Restores RX callbacks saved by uart_claim_rx(). */
+static inline void uart_release_rx(uart_rx_lease_t *lease) {
+  if (lease == NULL || !lease->active || lease->uart < UART_ID_1 ||
+      lease->uart > UART_ID_8)
+    return;
+  TEENSY_UART_DEVICE_SWITCH_VOID(uart_release_rx_device, lease->uart, lease);
 }
 
 /** Discards all received-but-unread bytes of a UART.

@@ -1,3 +1,4 @@
 #!/bin/bash
+set -e
 
-cmake --build build --target flash
+cmake --build build --target flash bin

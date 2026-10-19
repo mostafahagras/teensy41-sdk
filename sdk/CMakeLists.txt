@@ -4,6 +4,7 @@ add_library(teensy_sdk OBJECT
     src/boottime.c
     src/cache.c
     src/dma.c
+    src/firmware_update.c
     src/gpio.c
     src/gpt.c
     src/clock.c

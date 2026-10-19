@@ -70,6 +70,9 @@ static void nvram_flash_wait(void) {
 static void nvram_flash_write(uint32_t address, const void *data,
                               uint32_t length) {
   __disable_irq();
+  /* This writer uses the IP-bus TFDR register window. With ATDFEN set, IP-bus
+   * writes are ignored; that mode requires the separate AHB FIFO window. */
+  FLEXSPI_MCR0 &= ~FLEXSPI_MCR0_ATDFEN;
   FLEXSPI_LUTKEY = FLEXSPI_LUTKEY_VALUE;
   FLEXSPI_LUTCR = FLEXSPI_LUTCR_UNLOCK;
   FLEXSPI_IPCR0 = 0;
@@ -99,7 +102,22 @@ static void nvram_flash_write(uint32_t address, const void *data,
     if ((intr & FLEXSPI_INTR_IPTXWE) != 0u) {
       uint32_t chunk = remaining > 8u ? 8u : remaining;
       if (chunk > 0u) {
-        memcpy((void *)&FLEXSPI_TFDR0, src, chunk);
+        /* TFDR is a bank of 32-bit peripheral registers. Use full-width
+         * stores instead of the SDK's byte-at-a-time memcpy implementation. */
+        volatile uint32_t *fifo = (volatile uint32_t *)&FLEXSPI_TFDR0;
+        uint32_t word;
+        for (word = 0u; word * sizeof(uint32_t) < chunk; ++word) {
+          const uint8_t *bytes = src + word * sizeof(uint32_t);
+          uint32_t word_length = chunk - word * sizeof(uint32_t);
+          uint32_t value = 0xFFFFFFFFu;
+          uint32_t byte;
+          if (word_length > sizeof(uint32_t))
+            word_length = sizeof(uint32_t);
+          for (byte = 0u; byte < word_length; ++byte)
+            value = (value & ~(0xFFu << (byte * 8u))) |
+                    ((uint32_t)bytes[byte] << (byte * 8u));
+          fifo[word] = value;
+        }
         src += chunk;
         remaining -= chunk;
       }

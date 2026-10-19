@@ -82,6 +82,27 @@ With `teensy_loader_cli` installed, press the Teensy program button and run:
 cmake --build build --target flash
 ```
 
+## UART firmware updates
+
+Build a raw firmware image and send it from a Raspberry Pi 5 connected to
+Teensy UART1 (115200 baud, 8N1):
+
+```sh
+cmake --build build --target bin
+scripts/upload-uart --port /dev/ttyAMA0 build/teensy41.bin
+```
+
+The current `src/main.c` demo enters update mode when it receives `0x55` on
+UART1. The SDK updater then claims RX callback ownership, stages and checks the
+image, activates it, and reboots. The application must stop its own periodic
+transmissions on the selected UART before calling `fw_update_uart_run()`.
+Updates require enough unused program flash to stage the incoming image; the
+updater reports the available staging capacity before accepting it. Keep USB
+available for recovery if power is interrupted during activation.
+The image travels as raw 4 KiB UART chunks with per-chunk CRC checks and ACKs;
+the device verifies the complete staged image before activation. The uploader's
+`--baud` value must match the baud rate compiled into the application.
+
 The application entry point is `src/main.c`. The platform implementation is
 under `sdk/`, with public headers in `sdk/include/teensy/`.
 

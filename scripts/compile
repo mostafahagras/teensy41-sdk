@@ -1,3 +1,5 @@
 #!/bin/bash
+set -e
 
 cmake --build --preset teensy41
+cmake --build --preset teensy41 --target bin

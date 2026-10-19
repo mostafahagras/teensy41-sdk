@@ -9,7 +9,8 @@
 #define TEENSY_UART_IMPLEMENTATION
 #include <teensy/uart.h>
 
-#define UART_RX_CAPACITY 256u
+/* Leave headroom for foreground consumers while the UART IRQ drains RX. */
+#define UART_RX_CAPACITY 512u
 #define UART_TX_CAPACITY 256u
 #define UART_IRQ_PRIORITY 64u
 
@@ -45,6 +46,7 @@ typedef struct {
   void *rx_context;
   void *rx_idle_context;
   bool initialized;
+  bool rx_claimed;
 } uart_state_t;
 
 struct uart_device {
@@ -389,8 +391,10 @@ void uart_attach_rx_device(uart_device_t *device,
                            void *user_context) {
   uart_state_t *state = device->state;
   uint32_t primask = uart_critical_enter();
-  state->rx_callback = callback;
-  state->rx_context = user_context;
+  if (!state->rx_claimed) {
+    state->rx_callback = callback;
+    state->rx_context = user_context;
+  }
   uart_critical_leave(primask);
 }
 
@@ -400,10 +404,67 @@ void uart_attach_rx_idle_device(uart_device_t *device,
   volatile IMXRT_LPUART_t *port = device->config->port;
   uint32_t primask = uart_critical_enter();
   uart_state_t *state = device->state;
-  state->rx_idle_callback = callback;
-  state->rx_idle_context = user_context;
-  port->CTRL = callback ? (port->CTRL | LPUART_CTRL_ILIE)
-                        : (port->CTRL & ~LPUART_CTRL_ILIE);
+  if (!state->rx_claimed) {
+    state->rx_idle_callback = callback;
+    state->rx_idle_context = user_context;
+    port->CTRL = callback ? (port->CTRL | LPUART_CTRL_ILIE)
+                          : (port->CTRL & ~LPUART_CTRL_ILIE);
+  }
+  uart_critical_leave(primask);
+}
+
+int uart_claim_rx_device(uart_device_t *device, uart_id_t uart,
+                         uart_rx_lease_t *lease) {
+  uart_state_t *state;
+  IMXRT_LPUART_t *port;
+  uint32_t primask;
+
+  if (lease == NULL)
+    return -1;
+  state = device->state;
+  port = device->config->port;
+  primask = uart_critical_enter();
+  if (!state->initialized || state->rx_claimed) {
+    uart_critical_leave(primask);
+    return -1;
+  }
+
+  lease->uart = uart;
+  lease->rx_callback = state->rx_callback;
+  lease->rx_idle_callback = state->rx_idle_callback;
+  lease->rx_context = state->rx_context;
+  lease->rx_idle_context = state->rx_idle_context;
+  lease->active = true;
+
+  state->rx_claimed = true;
+  state->rx_callback = NULL;
+  state->rx_idle_callback = NULL;
+  state->rx_tail = state->rx_head;
+  port->CTRL &= ~LPUART_CTRL_ILIE;
+  uart_critical_leave(primask);
+  return 0;
+}
+
+void uart_release_rx_device(uart_device_t *device, uart_rx_lease_t *lease) {
+  uart_state_t *state;
+  IMXRT_LPUART_t *port;
+  uint32_t primask;
+
+  if (lease == NULL || !lease->active)
+    return;
+  state = device->state;
+  port = device->config->port;
+  primask = uart_critical_enter();
+  if (state->rx_claimed) {
+    state->rx_callback = lease->rx_callback;
+    state->rx_context = lease->rx_context;
+    state->rx_idle_callback = lease->rx_idle_callback;
+    state->rx_idle_context = lease->rx_idle_context;
+    state->rx_claimed = false;
+    port->CTRL = lease->rx_idle_callback ? (port->CTRL | LPUART_CTRL_ILIE)
+                                         : (port->CTRL & ~LPUART_CTRL_ILIE);
+  }
+  lease->active = false;
   uart_critical_leave(primask);
 }
 
@@ -534,6 +595,9 @@ int uart_init_device(uart_device_t *device, uint32_t baud_rate) {
   state->rx_tail = 0;
   state->tx_head = 0;
   state->tx_tail = 0;
+  state->rx_callback = NULL;
+  state->rx_idle_callback = NULL;
+  state->rx_claimed = false;
   state->initialized = false;
 
   *config->clock_gate |= config->clock_gate_mask;

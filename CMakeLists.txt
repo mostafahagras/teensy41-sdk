@@ -184,6 +184,7 @@ endif()
 
 if(ARM_OBJCOPY)
     teensy_add_hex_target(teensy41)
+    add_custom_target(bin DEPENDS teensy41-bin)
 
     if(TEENSY_LOADER_CLI)
         add_custom_target(flash
